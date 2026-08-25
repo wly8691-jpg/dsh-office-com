@@ -1,0 +1,22 @@
+{
+  "name": "@bananasoldier01/dsh-office-com",
+  "description": "COM 驱动真实 Office/WPS 实例的 DeepSeek Harness 插件：VBA宏 / 透视表 / 公式重算 / 已有文档深度排版（列表内唯一碰运行中 Office 的真空区）",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "lib/index.mjs",
+  "exports": {
+    ".": "./lib/index.mjs",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "peerDependencies": {
+    "cordis": "^4.0.0-rc.7"
+  },
+  "license": "MIT"
+}

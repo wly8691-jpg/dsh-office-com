@@ -1,0 +1,7 @@
+# dsh-office-com 插件 bundle patch（分发用）
+#
+# 安装: dsh plugin add "@bananasoldier01/dsh-office-com"
+# 本地开发: 用 dev.patch.yml（绝对路径直指 lib/index.mjs，gitignore 不提交）
+- insert:
+    - id: dsh-office-com
+      name: '@bananasoldier01/dsh-office-com'
