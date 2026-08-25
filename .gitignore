@@ -1,0 +1,4 @@
+node_modules/
+*.log
+dev.patch.yml
+.office.lock
