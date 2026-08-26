@@ -28,10 +28,10 @@ COM 驱动**真实 Office 实例**的 DeepSeek Harness（DSH）原生插件。�
 
 ```bash
 # npm 官方通道
-dsh plugin add @bananasoldier01/dsh-office-com
+dsh plugin add @eqman00003/dsh-office-com
 
 # 或 GitHub 源
-dsh plugin add "github:BananaSoldier01/dsh-office-com#main"
+dsh plugin add "github:wly8691-jpg/dsh-office-com#main"
 ```
 
 ## 环境要求

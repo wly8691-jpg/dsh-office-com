@@ -4,4 +4,4 @@
 # 本地开发: 用 dev.patch.yml（绝对路径直指 lib/index.mjs，gitignore 不提交）
 - insert:
     - id: dsh-office-com
-      name: '@bananasoldier01/dsh-office-com'
+      name: '@eqman00003/dsh-office-com'
