@@ -20,9 +20,11 @@ COM 驱动**真实 Office 实例**的 DeepSeek Harness（DSH）原生插件。�
 
 **透视表**：`excel_pivot_create`（PivotCache/PivotTable）· `excel_pivot_refresh`
 
-**Word**：`word_open`（打开读结构）· `word_edit`（全文查找替换）
+**Word**：`word_open`（打开读结构）· `word_edit`（全文查找替换，真实 `Find.Execute` + `wdReplaceAll`，只改文本、保留原文格式）
 
 **会计旗舰**：`excel_journal_post`（写分录 + 借贷平衡校验，借≠贷标红）· `excel_ledger_gen`（日记账 → 科目总账，SUMIF 聚合 + 余额公式）
+
+> **path 行为约定**：带 `path` 的调用，写操作（写值/公式/分录/透视/宏）执行后**保存并关闭**文件；读操作（读值/重算/打开/透视刷新）执行后直接关闭、不落盘。不带 `path` 则操作当前活动实例，不改变其开关状态。
 
 ## 安装
 
