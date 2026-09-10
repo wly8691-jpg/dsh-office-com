@@ -6,7 +6,8 @@
   "main": "lib/index.mjs",
   "scripts": {
     "test": "node test/register.mjs",
-    "test:e2e": "node test/smoke.mjs && node test/headless.mjs"
+    "test:e2e": "node test/smoke.mjs && node test/headless.mjs",
+    "test:leak": "node test/leakcheck.mjs"
   },
   "files": [
     "lib",
