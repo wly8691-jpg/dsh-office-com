@@ -120,6 +120,15 @@ const modeCases = [
   // 前缀码不能盖过通道错误：SSE 超时的文本里出现任何字样都不该被误分类
   ['channel-beats-prefix', finalize('excel_read_range', TOOL_META.excel_read_range, {}, { ok: false, error: 'MCP call timeout: tools/call 提到 [SAVE_FAILED] 字样' }),
     (r) => r.error_code === 'CHANNEL_UNAVAILABLE'],
+  // 僵尸 COM 对象：实测文本就是光秃秃一串属性路径，连 AttributeError 字样都没有。
+  // 不认它就会落到 UNKNOWN——Agent 拿到裸 pywin32 文本、不可重试、码表里还查不到。
+  ['dead-com-zombie-bare-path', finalize('excel_read_range', TOOL_META.excel_read_range, {}, { ok: false, error: 'Excel.Application.Workbooks' }),
+    (r) => r.error_code === 'COM_OBJECT_DEAD' && r.retryable === true],
+  ['dead-com-attribute-error', finalize('excel_read_range', TOOL_META.excel_read_range, {}, { ok: false, error: "AttributeError: '<win32com.gen_py...>' object has no attribute 'Workbooks'" }),
+    (r) => r.error_code === 'COM_OBJECT_DEAD'],
+  // 反例：正常报错里出现 Application 字样（但是散文式），不能被误判成僵尸
+  ['alive-com-not-misjudged', finalize('excel_open', TOOL_META.excel_open, {}, { ok: false, error: '无法打开工作簿: C:\\x.xlsx' }),
+    (r) => r.error_code === 'OPEN_FAILED'],
   // 前缀码进了 error_code 字段，文本里不该再重复一遍（渲染会变成「失败[X]: [X] …」）
   ['prefix-stripped-from-text', finalize('excel_ledger_gen', TOOL_META.excel_ledger_gen, { path: 'x' }, { ok: false, error: '[SAVE_FAILED] 保存失败: 文件被占用' }),
     (r) => r.error_code === 'SAVE_FAILED' && r.error === '保存失败: 文件被占用'],

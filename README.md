@@ -104,7 +104,7 @@ COM 驱动**真实 Office 实例**的 DeepSeek Harness（DSH）原生插件。�
 - `changed` / `saved` / `verified` 分开报：**改了 ≠ 落盘了 ≠ 核对过**。附着模式（无 `path`）改的是用户在用的工作簿，`saved` 为 `false`
 - 这三个字段**以观测为准**：Python 侧知道真实发生了什么（改没改、存没存、还开着没），与声明冲突时一律信观测——信封不会宣称一次实际失败的保存
 - `verified` 只在有校验步骤的工具上为真：`excel_recalc`（重算后读回活值）、`excel_journal_post`（借贷平衡）
-- `error_code`：`CHANNEL_UNAVAILABLE`（通道断，可重试）/ `SAVE_FAILED`（保存失败，可重试）/ `FILE_LOCKED`（文件被占，可重试）/ `MODE_INVALID` / `OVERWRITE_NOT_CONFIRMED` / `RISKY_OP_NOT_CONFIRMED` / `VBA_FAILED` / `MISSING_PARAM` / `DEGRADED` / `NO_ACTIVE_DOCUMENT` / `APP_UNAVAILABLE` / `EMPTY_SOURCE` / `SOURCE_RANGE_INVALID` / `OPEN_FAILED` / `UNKNOWN`
+- `error_code`：`CHANNEL_UNAVAILABLE`（通道断，可重试）/ `COM_OBJECT_DEAD`（通道里的对象成僵尸，可重试）/ `SAVE_FAILED`（保存失败，可重试）/ `FILE_LOCKED`（文件被占，可重试）/ `MODE_INVALID` / `OVERWRITE_NOT_CONFIRMED` / `RISKY_OP_NOT_CONFIRMED` / `VBA_FAILED` / `MISSING_PARAM` / `DEGRADED` / `NO_ACTIVE_DOCUMENT` / `APP_UNAVAILABLE` / `EMPTY_SOURCE` / `SOURCE_RANGE_INVALID` / `OPEN_FAILED` / `UNKNOWN`
 - `partial_changes`：失败后工作簿是否仍停在被修改状态。只有 Python 知道（自己开的那份收尾会 Close 丢弃 → `false`；附着模式改到一半 → `true`）
 
 ## 进程生命周期
@@ -286,6 +286,7 @@ dsh plugin add "github:wly8691-jpg/dsh-office-com#main"
 | `DEGRADED` | 没装 `officemcp`，或 `OFFICE_PYTHON` 指错 | 装 OfficeMCP；或设 `OFFICE_PYTHON` 指向能 `import officemcp` 的 python |
 | `APP_UNAVAILABLE` | OfficeMCP 在，但本机没 Excel/Word | 装 Office，或改用别的工具 |
 | `CHANNEL_UNAVAILABLE` | SSE 通道断了（**可重试**） | 重试一次即可——插件会自动重连（`test:faults` 有这条的回归） |
+| `COM_OBJECT_DEAD` | 通道里的 Office 对象成了**僵尸**（进程还在、对象已死，每个属性访问都抛 AttributeError） | 重试一次即可——插件会自动把 SSE 服务换掉、重新 Dispatch。**背靠背跑测试时最容易撞上**（上一个进程 Quit() 还没退干净，下一个恰好绑上去） |
 | `FILE_LOCKED` | 文件被别的进程占着（**可重试**） | 等释放后重试 |
 | `SAVE_FAILED` | 只读、被占、或磁盘满（**可重试**） | 查文件是否只读/被打开；`test:faults` 覆盖了只读这一路 |
 | `OVERWRITE_NOT_CONFIRMED` | 目标已有内容且不是本工具生成的 | 确认要覆盖就显式传 `overwrite:true` |
