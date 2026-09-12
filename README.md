@@ -114,6 +114,76 @@ COM 走的是本机 OfficeMCP（workbuddy Py3.13.12 自带），officemcp 的 `O
 - 用户自己开着的、或被切到可见的实例一律不动（可见 = 有人在看）。`excel_new` 会主动把实例切到可见（新建的工作簿得让用户看得见、够得着），因此它建出来的实例不参与回收
 - 检查：`npm run test:leak`（需本机 Office，跑前请先关掉 Excel）。四个用例：managed 链路退出后零残留 / 可见实例不被误杀 / `excel_new` 的实例存活 / `preview` 真开文件后零残留且文件 `mtime` 不变
 
+## 最小可运行示例
+
+按用途挑最短的一条路径。全部可直接复制给 Agent 当示例用。
+
+**① 写值 → 写公式 → 重算读活值**（底层三件套）
+
+```jsonc
+{ "tool": "excel_write_range", "range": "A1:C4",
+  "value": [["科目","月份","金额"],["办公费","1月",100],["办公费","2月",150],["差旅费","1月",80]] }
+
+{ "tool": "excel_formula_set", "range": "D1", "formula": "=SUM(C2:C4)" }
+
+// 强制重算后读回来的是**计算后的活值**，不是写死的数字
+{ "tool": "excel_recalc", "range": "D1" }   // → { "value": 330 }
+```
+
+**② 先预演、再动手**（安全动作模式的正用法）
+
+```jsonc
+// 第一步：问"会改成什么样"，真开文件看，一个字节都不改
+{ "tool": "excel_write_range", "path": "C:/book.xlsx", "range": "A2:B2",
+  "value": [["x","y"]], "mode": "preview" }
+// → { "preview": true, "changed": false, "output": {
+//      "target": { "sheet": "Sheet1", "address": "$A$2:$B$2", "shape": "1x2" },
+//      "overwrite_non_empty": 2, "sample_before": ["办公费", "100.0"] } }
+
+// 第二步：确认无误再真动手
+{ "tool": "excel_write_range", "path": "C:/book.xlsx", "range": "A2:B2",
+  "value": [["x","y"]] }
+```
+
+**③ 一条调用出整套会计报表**（任务级）
+
+```jsonc
+{ "tool": "office_generate_accounting_report",
+  "source": "transactions.csv",     // 或直接给分录数组
+  "output": "report-2026-08.xlsx",
+  "template": "monthly-template.xlsx",   // 可选，模板不会被改动
+  "period": "2026-08" }
+// → 日记账 + 借贷平衡校验 + 科目总账 + 透视表 + 强制重算 + 读回校验，一次调用
+// → 摘要："office_generate_accounting_report · 已修改并落盘 · posted=6 · 借贷平衡 · 已校验"
+```
+
+**④ 动工作簿之前先体检**
+
+```jsonc
+{ "tool": "office_check_workbook", "path": "C:/book.xlsx" }
+// → { "safe_to_edit": false, "formula_error_count": 2,
+//      "formula_errors": [{ "sheet": "数据", "cell": "$D$2" }, { "sheet": "数据", "cell": "$E$2" }],
+//      "flags": ["有未保存改动", "有 2 个公式求值出错", "有工作表被保护"] }
+```
+
+**⑤ Word 合同批量替换术语**
+
+```jsonc
+{ "tool": "office_replace_document_terms", "path": "C:/contract.docx",
+  "terms": { "甲方": "丙方", "乙方": "丁方" } }
+// → 先全部计数再统一替换；只动文本、保留原文格式
+// → { "terms": [{ "find": "甲方", "replace": "丙方", "count": 3 }, ...], "total_replaced": 6 }
+```
+
+**⑥ 同一份报表反复生成，第二次不重复入账**
+
+```jsonc
+{ "tool": "office_generate_accounting_report", "source": "tx.csv",
+  "output": "report.xlsx", "overwrite": true }
+// 底层用 excel_journal_post 时更直观：同批次重跑会返回
+// { "output": { "posted": 0, "idempotent_skip": true }, "changed": false }
+```
+
 ## 跑一遍会计旗舰 Demo
 
 一份脱敏交易数据、一次 preview、一次 managed、一次异常分录、一份结构化验证报告——
