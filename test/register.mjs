@@ -29,7 +29,7 @@ const need = [
   'word_open', 'word_edit',
   'excel_journal_post', 'excel_ledger_gen',
   // v0.4 任务级工具
-  'office_generate_accounting_report',
+  'office_generate_accounting_report', 'office_check_workbook',
 ]
 const missing = need.filter((n) => !tools[n])
 if (missing.length) {
