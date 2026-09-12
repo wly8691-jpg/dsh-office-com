@@ -113,6 +113,32 @@ if (pm.text !== 'boom' || pm.meta.partial_changes !== true) {
 }
 console.log(`[register] mode contract OK (${modeCases.length} cases)`)
 
+// ── 模式参数的 schema 暴露（纯函数，不需要 Office）──
+// 不变量：**工具暴露 mode，就必须真的实现了 preview 分支**。暴露了却没实现，
+// Agent 传 mode=preview 会拿到一次真改动——比不暴露更糟。
+// 下面这 5 个已接线；pivot_create / journal_post / ledger_gen 的 preview 与幂等重构
+// 同期落地，届时把它们加进来（U4）。
+const mutating = [
+  'excel_formula_set', 'excel_write_range', 'excel_vba_run',
+  'excel_pivot_refresh', 'word_edit',
+]
+const schemaBad = []
+for (const n of mutating) {
+  const p = tools[n].parameters.properties
+  if (!p.mode || !p.overwrite) schemaBad.push(`${n}: 缺 ${!p.mode ? 'mode ' : ''}${!p.overwrite ? 'overwrite' : ''}`.trim())
+  if (p.mode && JSON.stringify(p.mode.enum) !== JSON.stringify(['preview', 'managed', 'attached'])) schemaBad.push(`${n}: mode enum 不对`)
+  if ((tools[n].parameters.required || []).includes('mode')) schemaBad.push(`${n}: mode 不该是必填（会破坏现有调用）`)
+  // 只读工具不该被塞模式参数：它们没有 dry-run 差异，塞了只会让 Agent 以为能预演
+}
+for (const n of ['excel_read_range', 'excel_recalc', 'excel_open', 'word_open', 'office_apps']) {
+  if (tools[n].parameters.properties.mode) schemaBad.push(`${n}: 只读工具不该带 mode`)
+}
+if (schemaBad.length) {
+  console.error(`[register] FAIL schema: ${schemaBad.join(' | ')}`)
+  process.exit(1)
+}
+console.log(`[register] schema contract OK (${mutating.length} mutating tools expose mode)`)
+
 // 无 officemcp 时应走降级：工具可调用但返回 {ok:false} 的友好报错（而不是抛异常）
 const py = findPython()
 if (!py) {
