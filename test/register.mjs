@@ -28,6 +28,8 @@ const need = [
   'excel_pivot_create', 'excel_pivot_refresh',
   'word_open', 'word_edit',
   'excel_journal_post', 'excel_ledger_gen',
+  // v0.4 任务级工具
+  'office_generate_accounting_report',
 ]
 const missing = need.filter((n) => !tools[n])
 if (missing.length) {
@@ -138,6 +140,7 @@ const mutating = [
   'excel_formula_set', 'excel_write_range', 'excel_vba_run',
   'excel_pivot_create', 'excel_pivot_refresh',
   'excel_journal_post', 'excel_ledger_gen', 'word_edit',
+  'office_generate_accounting_report',
 ]
 const schemaBad = []
 for (const n of mutating) {
