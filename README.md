@@ -1,5 +1,7 @@
 # dsh-office-com
 
+**Windows 本机真实 Office 自动化插件**，已完成契约、任务级、故障注入和进程泄漏回归；真实 Office 测试需要在目标机器上执行。
+
 COM 驱动**真实 Office 实例**的 DeepSeek Harness（DSH）原生插件。区别于列表内所有文件级读写的 Office 插件，本插件通过本机 OfficeMCP 的 COM 通道直接操作**运行中**的 Excel / Word：VBA 宏、透视表、公式重算、已有文档深度排版，外加一套会计旗舰场景（分录 → 总账 → 透视表 → 三表）。
 
 ## 定位差异
