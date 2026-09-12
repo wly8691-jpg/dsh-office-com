@@ -1,7 +1,7 @@
 {
   "name": "@eqman00003/dsh-office-com",
   "description": "COM 驱动真实 Office 实例的 DeepSeek Harness 插件：VBA宏 / 透视表 / 公式重算 / 已有文档深度排版（列表内唯一碰运行中 Office 的真空区）",
-  "version": "0.4.0",
+  "version": "1.0.0",
   "type": "module",
   "main": "lib/index.mjs",
   "scripts": {
@@ -10,11 +10,13 @@
     "test:leak": "node test/leakcheck.mjs",
     "test:flagship": "node test/flagship.mjs",
     "test:tasks": "node test/tasks.mjs",
-    "test:faults": "node test/faults.mjs"
+    "test:faults": "node test/faults.mjs",
+    "test:all": "npm test && npm run test:e2e && npm run test:flagship && npm run test:tasks && npm run test:faults"
   },
   "files": [
     "lib",
-    "cordis.patch.yml"
+    "cordis.patch.yml",
+    "CHANGELOG.md"
   ],
   "exports": {
     ".": "./lib/index.mjs",
