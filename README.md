@@ -146,11 +146,17 @@ npm run test:flagship
 | 命令 | 层级 | 需要 Office |
 |---|---|---|
 | `npm test` | 工具注册 + 信封/模式/schema 契约（纯函数，CI 跑） | 否 |
-| `npm run test:e2e` | 协议链路 + 工具编排（smoke / headless） | 是 |
-| `npm run test:flagship` | **任务回归**：一整条业务链跑两遍的重复正确性 | 是 |
+| `npm run test:e2e` | 协议链路 + 底层工具编排（smoke / headless） | 是 |
+| `npm run test:flagship` | **任务回归**：会计链路跑两遍的重复正确性 | 是 |
+| `npm run test:tasks` | **任务级工具**：6 个 v0.4 工具的行为与安全闸（45 项） | 是 |
+| `npm run test:faults` | **故障注入**：保存失败 / 只读 / 宏失败 / 断线重连 / 类型边界 | 是 |
 | `npm run test:leak` | 跨进程的 Office 进程残留与文件锁 | 是 |
 
 CI 只跑第一项与语法检查——其余都要真实 Office，跑前请先关掉 Excel。
+
+> `test:faults` 不是走过场：它上线第一轮就抓到两个真缺陷——只读工作簿下 `Save()`
+> 在 `DisplayAlerts=False` 时**静默不写**而信封报 `saved:true`，以及非法区域引用报 `UNKNOWN`。
+> **故障用例的价值就在这里：只在真机上才暴露的路径，信封最容易说谎。**
 
 ## 安装
 
@@ -166,6 +172,55 @@ dsh plugin add "github:wly8691-jpg/dsh-office-com#main"
 
 - Microsoft Excel / Word（真实实例）
 - Python + OfficeMCP（`officemcp` 包，含 pywin32）。默认探测 workbuddy Py3.13.12，可用环境变量 `OFFICE_PYTHON` 覆盖
+
+## 诊断：装完先确认这四件事
+
+**① 插件加载了没** —— 看 DSH 启动日志：
+
+```text
+[dsh-office-com] plugin loaded            ← 正常
+[dsh-office-com] plugin loaded (degraded) ← 没找到 OfficeMCP，所有工具会返回 DEGRADED
+```
+
+**② 通道通不通** —— 调一次 `office_apps`（最轻、无副作用）：
+
+```jsonc
+{ "ok": true, "output": { "excel": true, "word": true, "outlook": false, "running": [] } }
+```
+
+`excel: false` 说明本机没装 Excel；整条 `ok: false` 说明通道没起来。
+
+**③ 契约层完好没** —— 在仓库目录跑 `npm test`。这一项**不需要 Office**，
+能把 21 个工具注册、信封/模式/schema 契约全过一遍，所以 CI 也跑它。
+
+**④ 端到端** —— `npm run test:e2e`（需真实 Office）。
+
+### 按错误码对症
+
+| 看到 | 多半是 | 怎么办 |
+|---|---|---|
+| `DEGRADED` | 没装 `officemcp`，或 `OFFICE_PYTHON` 指错 | 装 OfficeMCP；或设 `OFFICE_PYTHON` 指向能 `import officemcp` 的 python |
+| `APP_UNAVAILABLE` | OfficeMCP 在，但本机没 Excel/Word | 装 Office，或改用别的工具 |
+| `CHANNEL_UNAVAILABLE` | SSE 通道断了（**可重试**） | 重试一次即可——插件会自动重连（`test:faults` 有这条的回归） |
+| `FILE_LOCKED` | 文件被别的进程占着（**可重试**） | 等释放后重试 |
+| `SAVE_FAILED` | 只读、被占、或磁盘满（**可重试**） | 查文件是否只读/被打开；`test:faults` 覆盖了只读这一路 |
+| `OVERWRITE_NOT_CONFIRMED` | 目标已有内容且不是本工具生成的 | 确认要覆盖就显式传 `overwrite:true` |
+| `RISKY_OP_NOT_CONFIRMED` | 跑 VBA 宏没给确认位 | 确认要跑就显式传 `confirm:true` |
+
+**怀疑有看不见的 EXCEL.EXE 残留**：跑 `npm run test:leak`（它会先要求你关掉 Excel）。
+三个用例会分清「我们起的孤儿」与「你本来开着的、或新建给你的」——后者不该被回收。
+
+## 卸载
+
+```bash
+dsh plugin remove @eqman00003/dsh-office-com
+rm -rf ~/.dsh-office-com      # 状态目录：SSE 锁文件与实例基线
+```
+
+- 卸载**不会碰你的任何 Office 文档**——插件从不写文档以外的东西
+- 若卸载时还有残留的不可见 `EXCEL.EXE`，先手动关掉（`~/.dsh-office-com/office.lock`
+  里记着 `pid`），否则它会一直占着文件锁
+- 卸载后进程回收也不再生效——插件退出时的收尾就是靠它自己，卸载前先把 Excel 关干净更稳妥
 
 ## 架构（三层）
 
