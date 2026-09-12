@@ -5,12 +5,13 @@
 // 我们只 kill python SSE 子进程（TerminateProcess，atexit 不跑），Excel 只要还开着工作簿就不会
 // 自己退 → 宿主退出后留下不可见的孤儿 EXCEL.EXE。lib 的退出收尾只回收「启动前不存在 且 不可见」的实例。
 //
-// 三个用例：
+// 四个用例：
 //   A excel_open/write/read（managed 模式，Excel 全程不可见）→ 宿主退出后不该有残留
 //   B office_launch(visible:true)  → 可见实例必须存活（收尾不能误杀用户看得见的东西）
 //   C excel_new                    → 必须置可见并留给用户（不置可见就等于凭空多一个够不着的孤儿）
+//   D mode=preview 真开文件（只读）→ 既不该有残留，文件也不该被动过（preview 是新增的泄漏口）
 import { spawnSync, spawn } from 'node:child_process'
-import { existsSync, unlinkSync } from 'node:fs'
+import { existsSync, unlinkSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { findPython } from '../lib/index.mjs'
@@ -141,9 +142,32 @@ log('excel_read_range', await tools.excel_read_range.execute({ path: ${JSON.stri
     ? `[leakcheck] C PASS: 新建工作簿的 Excel 存活（pid ${survivedC.join(',')}）`
     : '[leakcheck] C FAIL: excel_new 的实例被回收了（应置可见并留给用户）')
   for (const pid of survivedC) killPid(pid)
+  await sleep(1500)
+
+  // ── 用例 D：preview 真开文件（只读）→ 退出后既不该有残留，文件也不该被动过 ──
+  // preview 会真的经 COM 打开工作簿来读真实状态，是 v0.3 新增的泄漏口。
+  // 第二个调用刻意让它中途抛错（空账簿）——验证「preview 打开后探查失败」也会把文件关掉。
+  console.log('[leakcheck] D preview 真开文件（只读）…')
+  const mtimeBefore = statSync(TMP_BOOK).mtimeMs
+  const d = await runChild(`
+log('preview-write_range', await tools.excel_write_range.execute({ path: ${JSON.stringify(TMP_BOOK)}, sheet: 'Sheet1', range: 'A1:B2', value: [[9,9],[9,9]], mode: 'preview' }))
+log('preview-ledger', await tools.excel_ledger_gen.execute({ path: ${JSON.stringify(TMP_BOOK)}, mode: 'preview' }))`)
+  console.log(d.out.trim() || d.err.trim().slice(-400))
+  await sleep(3000)
+  const leakedD = excelPids()
+  console.log(leakedD.length
+    ? `[leakcheck] D LEAK: preview 宿主退出后残留 EXCEL pid ${leakedD.join(',')}`
+    : '[leakcheck] D PASS: preview 宿主退出后无残留')
+  const mtimeAfter = statSync(TMP_BOOK).mtimeMs
+  const untouched = mtimeBefore === mtimeAfter
+  console.log(untouched
+    ? '[leakcheck] D PASS: preview 未改动文件（mtime 不变）'
+    : `[leakcheck] D FAIL: preview 改动了文件（${mtimeBefore} -> ${mtimeAfter}）`)
+  for (const pid of leakedD) { quitViaCom(py, 'Excel'); killPid(pid) }
+  await sleep(1500)
 
   try { unlinkSync(TMP_BOOK) } catch { /* 没建成 */ }
-  const pass = leakedA.length === 0 && survivedB.length > 0 && survivedC.length > 0
+  const pass = leakedA.length === 0 && survivedB.length > 0 && survivedC.length > 0 && leakedD.length === 0 && untouched
   console.log(pass ? '[leakcheck] PASS' : '[leakcheck] FAIL')
   process.exit(pass ? 0 : 2)
 }
