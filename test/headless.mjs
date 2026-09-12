@@ -89,8 +89,11 @@ check('办公费 余额=100', of && Number(of[1]) === 100 && Number(of[3]) === 1
 check('银行存款 余额=-100', bank && Number(bank[2]) === 100 && Number(bank[3]) === -100, bank ? JSON.stringify(bank) : 'row missing')
 
 // ── 附加：不平衡分录应被检出（balanced=false）────────────
+// 显式 append：这批与上一批内容不同，本来就不会触发幂等跳过；写出来是为了防止有人
+// "顺手统一" fixture 复用上面那批分录——那时 skip 会生效，这条断言就会变成假阴性。
 const jpBad = await call('excel_journal_post', {
   sheet: s2,
+  on_duplicate: 'append',
   entries: [{ date: '2026-01-06', desc: '不平衡测试', account: '测试', debit: 100, credit: 90 }],
 })
 check('excel_journal_post 不平衡检出', jpBad.balanced === false && jpBad.debit_total === 100 && jpBad.credit_total === 90, JSON.stringify(jpBad))
