@@ -99,6 +99,15 @@ const modeCases = [
   // [META] 是失败元数据的唯一通道：剥掉后错误文本要干净，且 partial_changes 以观测为准
   ['err-meta-stripped', finalize('excel_write_range', TOOL_META.excel_write_range, {}, { ok: false, error: '改到一半炸了 [META]{"partial_changes": true}' }),
     (r) => r.error === '改到一半炸了' && r.partial_changes === true],
+  // 高危动作未确认：静态码
+  ['risky-not-confirmed', finalize('excel_vba_run', TOOL_META.excel_vba_run, { macro: 'M.X' }, { ok: false, error: '[RISKY_OP_NOT_CONFIRMED] 运行 VBA 宏是高危动作' }),
+    (r) => r.error_code === 'RISKY_OP_NOT_CONFIRMED' && r.retryable === false],
+  // 宏执行失败：自带码，不走模糊匹配（COM 报错文本随语言变）
+  ['vba-failed', finalize('excel_vba_run', TOOL_META.excel_vba_run, { macro: 'M.X' }, { ok: false, error: '[VBA_FAILED] 宏执行失败 M.X: 无法运行宏' }),
+    (r) => r.error_code === 'VBA_FAILED'],
+  // 前缀码不能盖过通道错误：SSE 超时的文本里出现任何字样都不该被误分类
+  ['channel-beats-prefix', finalize('excel_read_range', TOOL_META.excel_read_range, {}, { ok: false, error: 'MCP call timeout: tools/call 提到 [SAVE_FAILED] 字样' }),
+    (r) => r.error_code === 'CHANNEL_UNAVAILABLE'],
 ]
 const badMode = modeCases.filter(([, r, ok]) => !ok(r))
 if (badMode.length) {
