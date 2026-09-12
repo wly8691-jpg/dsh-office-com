@@ -161,7 +161,7 @@ console.log(`[register] mode contract OK (${modeCases.length} cases)`)
 // ── 模式参数的 schema 暴露（纯函数，不需要 Office）──
 // 不变量：**工具暴露 mode，就必须真的实现了 preview 分支**。暴露了却没实现，
 // Agent 传 mode=preview 会拿到一次真改动——比不暴露更糟。
-// 8 个会改动文档的工具全部接线完毕（preview 分支 + 幂等语义）。
+// 13 个会改动文档的工具全部接线完毕（8 底层 + 5 任务级；preview 分支 + 幂等语义）。
 const mutating = [
   'excel_formula_set', 'excel_write_range', 'excel_vba_run',
   'excel_pivot_create', 'excel_pivot_refresh',

@@ -54,12 +54,15 @@
 
 | 命令 | 覆盖 | 断言数 |
 |---|---|---|
-| `npm test` | 工具注册 + 信封/模式/schema 契约（**无需 Office**） | 23 用例 |
-| `npm run test:e2e` | 协议链路 + 底层工具编排 | 12 |
-| `npm run test:flagship` | 会计旗舰链路整条跑两遍的重复正确性 | 27 |
-| `npm run test:tasks` | 6 个任务级工具的行为与安全闸 | 45 |
-| `npm run test:faults` | 保存失败 / 只读 / 宏失败 / 断线重连 / 类型边界 | 21 |
+| `npm test` | 工具注册 + 信封/模式/schema 契约（**无需 Office**） | 32（信封 6 + 模式 26） |
+| `npm run test:e2e` | 协议链路 + 底层工具编排 | 11（headless）+ smoke |
+| `npm run test:flagship` | 会计旗舰链路整条跑两遍的重复正确性 | 26 |
+| `npm run test:tasks` | 6 个任务级工具的行为与安全闸 | 48 |
+| `npm run test:faults` | 保存失败 / 只读 / 宏失败 / 断线重连 / 类型边界 | 19 |
 | `npm run test:leak` | 跨进程的 Office 进程残留与文件锁 | 4 用例 |
+
+> 上表数字以**实跑的 PASS 行数**为准。1.0.0 发布时这里写错过（flagship/tasks/faults
+> 记成 27/45/21，实际 26/48/19；headless 记成 12，实际 11）——断言写多了写少了都是失真。
 
 CI 只跑第一项与语法检查（其余需真实 Office）。
 

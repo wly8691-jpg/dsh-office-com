@@ -45,7 +45,7 @@ COM 驱动**真实 Office 实例**的 DeepSeek Harness（DSH）原生插件。�
 
 ## 执行模式（v0.3）
 
-8 个会改动文档的工具都接受 `mode`。**缺省按有无 `path` 推断**，所以老调用一字不改。
+13 个会改动文档的工具都接受 `mode`（8 个底层写工具 + 5 个任务级）。**缺省按有无 `path` 推断**，所以老调用一字不改。
 
 | mode | 干什么 | 什么时候用 |
 |---|---|---|
@@ -85,7 +85,7 @@ COM 驱动**真实 Office 实例**的 DeepSeek Harness（DSH）原生插件。�
 
 ## 统一结果协议（v0.2 / v0.3 / v0.4）
 
-所有工具返回同一信封，Agent 只读 `ok` / `error_code` / `retryable` 就能分支，不必解析 15 种各不相同的返回形状。
+所有工具返回同一信封，Agent 只读 `ok` / `error_code` / `retryable` 就能分支，不必解析 21 种各不相同的返回形状。
 
 ```jsonc
 // 成功
@@ -112,8 +112,14 @@ COM 驱动**真实 Office 实例**的 DeepSeek Harness（DSH）原生插件。�
 COM 走的是本机 OfficeMCP（workbuddy Py3.13.12 自带），officemcp 的 `Officer.Excel` 是 **Dispatch 出来并永久缓存**的实例，默认不可见。
 
 - 该 SSE 服务由插件按需 spawn（动态端口 + `~/.dsh-office-com/office.lock` singleton），宿主退出时回收
-- 宿主的 python 子进程是被强杀的（`TerminateProcess`，atexit 不跑），而 Excel 只要还挂着工作簿就不会自己退 → 会留下**不可见的孤儿 EXCEL.EXE**（占内存 + 占文件锁）。插件在退出时做收尾：**启动前不存在 且 当前不可见**的实例才回收，先 `Quit()`、送不走再按 Hwnd 拿 pid 强制结束
-- 用户自己开着的、或被切到可见的实例一律不动（可见 = 有人在看）。`excel_new` 会主动把实例切到可见（新建的工作簿得让用户看得见、够得着），因此它建出来的实例不参与回收
+- 宿主的 python 子进程是被强杀的（`TerminateProcess`，atexit 不跑），而 Excel 只要还挂着工作簿就不会自己退 → 会留下**不可见的孤儿 EXCEL.EXE**（占内存 + 占文件锁）。插件在退出时做收尾，判定分两层：
+  - **归属按 pid 判**：启动时记下 `{镜像名: [pid]}` 基线，退出时"当时不存在、现在在跑"的 pid 才是我们起的。
+    （早先按镜像名判，导致起始时只要有一个 Excel 在跑，之后自己创建的也永远认不出来、永不回收）
+  - **可见的一律放过**：能通过 COM 取到并且 `Visible` 的，进保护集不动（可见 = 有人在看）。
+    先 `Quit()` 送一程，送不走再按 pid 强制结束，落地前复核"pid 背后还是同一个 exe"防误杀
+- **僵尸实例也在回收范围内**：`Quit()` 后进程还在退的那段时间里，对象会变成"进程活着、每个属性都抛异常"的僵尸。
+  这类实例取不到 pid 做可见性判断，正因如此才更要靠上面的 pid 归属来认——否则它既不可见、又永不回收，会一直占着文件锁
+- `excel_new` 会主动把实例切到可见（新建的工作簿得让用户看得见、够得着），因此它建出来的实例不参与回收
 - 检查：`npm run test:leak`（需本机 Office，跑前请先关掉 Excel）。四个用例：managed 链路退出后零残留 / 可见实例不被误杀 / `excel_new` 的实例存活 / `preview` 真开文件后零残留且文件 `mtime` 不变
 
 ## 最小可运行示例
@@ -220,7 +226,7 @@ npm run test:flagship
 | `npm test` | 工具注册 + 信封/模式/schema 契约（纯函数，CI 跑） | 否 |
 | `npm run test:e2e` | 协议链路 + 底层工具编排（smoke / headless） | 是 |
 | `npm run test:flagship` | **任务回归**：会计链路跑两遍的重复正确性 | 是 |
-| `npm run test:tasks` | **任务级工具**：6 个 v0.4 工具的行为与安全闸（45 项） | 是 |
+| `npm run test:tasks` | **任务级工具**：6 个 v0.4 工具的行为与安全闸（48 项） | 是 |
 | `npm run test:faults` | **故障注入**：保存失败 / 只读 / 宏失败 / 断线重连 / 类型边界 | 是 |
 | `npm run test:leak` | 跨进程的 Office 进程残留与文件锁 | 是 |
 
