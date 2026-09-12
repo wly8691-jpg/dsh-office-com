@@ -120,6 +120,12 @@ const modeCases = [
   // 前缀码不能盖过通道错误：SSE 超时的文本里出现任何字样都不该被误分类
   ['channel-beats-prefix', finalize('excel_read_range', TOOL_META.excel_read_range, {}, { ok: false, error: 'MCP call timeout: tools/call 提到 [SAVE_FAILED] 字样' }),
     (r) => r.error_code === 'CHANNEL_UNAVAILABLE'],
+  // 前缀码进了 error_code 字段，文本里不该再重复一遍（渲染会变成「失败[X]: [X] …」）
+  ['prefix-stripped-from-text', finalize('excel_ledger_gen', TOOL_META.excel_ledger_gen, { path: 'x' }, { ok: false, error: '[SAVE_FAILED] 保存失败: 文件被占用' }),
+    (r) => r.error_code === 'SAVE_FAILED' && r.error === '保存失败: 文件被占用'],
+  // 中段出现的方括号字样不能被当成前缀剥掉（只剥行首）
+  ['mid-text-bracket-kept', finalize('excel_read_range', TOOL_META.excel_read_range, {}, { ok: false, error: '打开失败（见 [DOCS] 说明）' }),
+    (r) => r.error.includes('[DOCS]')],
 ]
 const badMode = modeCases.filter(([, r, ok]) => !ok(r))
 if (badMode.length) {

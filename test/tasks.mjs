@@ -267,10 +267,17 @@ const reset = (p) => { if (existsSync(p)) rmSync(p) }
   check('摘要：缺 source 报 MISSING_PARAM', !r.ok && r.error_code === 'MISSING_PARAM', `[${r.error_code}]`)
 }
 
-// ══ G. 收尾：任务级工具不得遗留打开的工作簿 ══════════════════════
+// ══ G. 收尾：本测试开的文件必须都关掉了 ══════════════════════════
+// 只查本测试的文件（前缀 t-）。**不能断言"整个实例没有打开的工作簿"**：
+// headless / flagship 也用 excel_new 造工作簿，那些会按设计留着
+// （那正是 excel_new 的语义，由 leakcheck 用例 C 守着），不该算到任务级工具头上。
+// 这一条真正盯的是：任务级工具自己 Open 的文件必须自己 Close。
 {
-  const left = await raw(['excel = Officer.Excel', 'output = json.dumps([w.Name for w in excel.Workbooks])'], {})
-  check('全部任务级工具跑完后无遗留打开的工作簿', Array.isArray(left) && left.length === 0, JSON.stringify(left))
+  const left = await raw(['excel = Officer.Excel',
+    'output = json.dumps([w.FullName for w in excel.Workbooks])'], {})
+  const mine = (Array.isArray(left) ? left : []).filter((p) => /[\\/]t-/.test(String(p)))
+  check('本测试开的文件都已关闭（任务级工具自己开自己关）', mine.length === 0,
+    mine.length ? JSON.stringify(mine) : `实例内其他工作簿：${JSON.stringify(left)}`)
 }
 
 console.log(fail === 0 ? '\n[TASKS] ALL PASS' : `\n[TASKS] ${fail} FAILURE(S)`)
