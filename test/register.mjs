@@ -1,7 +1,15 @@
 // 注册冒烟：无 Office / officemcp 环境也能跑（CI 用）——验证 15 个工具全部注册 + 降级路径正常
 // 运行: node test/register.mjs  （等价 npm test）
 // 真实 COM 链路见 test/smoke.mjs / test/headless.mjs（npm run test:e2e，需本机 Office + officemcp）
-import { apply, findPython, finalize, classifyError, TOOL_META, resolveCtl, parseErrMeta } from '../lib/index.mjs'
+import { apply, findPython, finalize, classifyError, TOOL_META, resolveCtl, parseErrMeta, VERSION } from '../lib/index.mjs'
+import { readFileSync } from 'node:fs'
+
+// 版本号在 lib 与 package.json 各有一处，断言一致——否则发出去的包与代码里报的对不上
+const pkgVersion = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version
+if (pkgVersion !== VERSION) {
+  console.error(`[register] FAIL version: package.json=${pkgVersion} lib=${VERSION}`)
+  process.exit(1)
+}
 
 const tools = {}
 const ctx = {
