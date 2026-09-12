@@ -1,7 +1,7 @@
 // 注册冒烟：无 Office / officemcp 环境也能跑（CI 用）——验证 15 个工具全部注册 + 降级路径正常
 // 运行: node test/register.mjs  （等价 npm test）
 // 真实 COM 链路见 test/smoke.mjs / test/headless.mjs（npm run test:e2e，需本机 Office + officemcp）
-import { apply, findPython, finalize, classifyError, TOOL_META } from '../lib/index.mjs'
+import { apply, findPython, finalize, classifyError, TOOL_META, resolveCtl, parseErrMeta } from '../lib/index.mjs'
 
 const tools = {}
 const ctx = {
@@ -55,6 +55,63 @@ if (bad.length) {
   process.exit(1)
 }
 console.log(`[register] envelope contract OK (${cases.length} cases)`)
+
+// ── v0.3 安全动作模式契约（纯函数，不需要 Office）──
+const modeCases = [
+  // 四，沿用现有推断：带 path = managed，不带 = attached
+  ['mode-infer-managed', resolveCtl('excel_write_range', { path: 'C:\\x.xlsx' }),
+    (c) => c.mode === 'managed' && c.want_save === true && c.want_close === true],
+  ['mode-infer-attached', resolveCtl('excel_write_range', {}),
+    (c) => c.mode === 'attached' && c.want_save === false && c.want_close === false],
+  // 显式 mode 覆盖推断
+  ['mode-explicit-preview', resolveCtl('excel_write_range', { path: 'C:\\x.xlsx', mode: 'preview' }),
+    (c) => c.mode === 'preview' && c.preview === true && c.want_save === false && c.want_close === true],
+  // preview 永不落盘：就算显式 save:true 也不算数
+  ['mode-preview-never-saves', resolveCtl('excel_ledger_gen', { mode: 'preview', save: true }),
+    (c) => c.want_save === false],
+  // save / close 显式优先
+  ['mode-explicit-save', resolveCtl('excel_write_range', { path: 'C:\\x.xlsx', save: false }),
+    (c) => c.want_save === false && c.want_close === true],
+  // 非法 mode 不抛异常，交给信封出稳定码
+  ['mode-invalid', resolveCtl('excel_write_range', { mode: 'overwrite' }),
+    (c) => c.valid === false],
+  // 只有写工具进 dry-run 集合
+  ['mode-mutating-set', resolveCtl('excel_write_range', {}),
+    (c) => c.mutating === true && resolveCtl('excel_read_range', {}).mutating === false],
+  // preview 信封：changed/saved 恒 false
+  ['preview-envelope', finalize('excel_write_range', TOOL_META.excel_write_range, { path: 'x', mode: 'preview' }, { ok: true, output: { written: true } }),
+    (r) => r.ok === true && r.preview === true && r.mode === 'preview' && r.changed === false && r.saved === false],
+  // 观测优先：Python 说没存，信封就不能说存了（哪怕带了 path）
+  ['observed-beats-declared', finalize('excel_write_range', TOOL_META.excel_write_range, { path: 'C:\\x.xlsx' }, { ok: true, output: { written: true, saved: false } }),
+    (r) => r.saved === false],
+  // U0：目标文件已被用户打开 → 改了内存但没落盘，信封说实话
+  ['attached-existing-open', finalize('excel_write_range', TOOL_META.excel_write_range, { path: 'C:\\x.xlsx' }, { ok: true, output: { written: true, attached_existing_open: true } }),
+    (r) => r.saved === false && r.warnings.some((w) => w.includes('已被用户打开'))],
+  // 非法 mode 走 MODE_INVALID，不可重试
+  ['mode-invalid-envelope', finalize('excel_write_range', TOOL_META.excel_write_range, { mode: 'overwrite' }, { ok: false, error: '[MODE_INVALID] 未知 mode' }),
+    (r) => r.error_code === 'MODE_INVALID' && r.retryable === false],
+  // 覆盖未确认：静态码，不可重试
+  ['overwrite-not-confirmed', finalize('excel_ledger_gen', TOOL_META.excel_ledger_gen, { path: 'x' }, { ok: false, error: '[OVERWRITE_NOT_CONFIRMED] 总账工作表已有内容' }),
+    (r) => r.error_code === 'OVERWRITE_NOT_CONFIRMED' && r.retryable === false],
+  // 保存失败：可重试（多为文件被占的瞬时原因）
+  ['save-failed-retryable', finalize('excel_write_range', TOOL_META.excel_write_range, { path: 'x' }, { ok: false, error: '[SAVE_FAILED] 保存失败: 文件被占用' }),
+    (r) => r.error_code === 'SAVE_FAILED' && r.retryable === true],
+  // [META] 是失败元数据的唯一通道：剥掉后错误文本要干净，且 partial_changes 以观测为准
+  ['err-meta-stripped', finalize('excel_write_range', TOOL_META.excel_write_range, {}, { ok: false, error: '改到一半炸了 [META]{"partial_changes": true}' }),
+    (r) => r.error === '改到一半炸了' && r.partial_changes === true],
+]
+const badMode = modeCases.filter(([, r, ok]) => !ok(r))
+if (badMode.length) {
+  console.error(`[register] FAIL mode: ${badMode.map(([n, r]) => `${n}=${JSON.stringify(r)}`).join(' ')}`)
+  process.exit(1)
+}
+// parseErrMeta 的解析本身也过一遍
+const pm = parseErrMeta('boom [META]{"partial_changes": true}')
+if (pm.text !== 'boom' || pm.meta.partial_changes !== true) {
+  console.error(`[register] FAIL parseErrMeta: ${JSON.stringify(pm)}`)
+  process.exit(1)
+}
+console.log(`[register] mode contract OK (${modeCases.length} cases)`)
 
 // 无 officemcp 时应走降级：工具可调用但返回 {ok:false} 的友好报错（而不是抛异常）
 const py = findPython()
