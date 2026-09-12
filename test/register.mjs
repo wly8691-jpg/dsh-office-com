@@ -126,6 +126,15 @@ const modeCases = [
   // 中段出现的方括号字样不能被当成前缀剥掉（只剥行首）
   ['mid-text-bracket-kept', finalize('excel_read_range', TOOL_META.excel_read_range, {}, { ok: false, error: '打开失败（见 [DOCS] 说明）' }),
     (r) => r.error.includes('[DOCS]')],
+  // 一行操作摘要：Agent 不必解析 output 就能判断发生了什么
+  ['summary-counts-and-state', finalize('excel_journal_post', TOOL_META.excel_journal_post, {}, { ok: true, output: { posted: 2, balanced: true } }),
+    (r) => /^excel_journal_post · 已修改（未落盘） · posted=2 · 借贷平衡/.test(r.summary)],
+  ['summary-flags-imbalance', finalize('excel_journal_post', TOOL_META.excel_journal_post, {}, { ok: true, output: { posted: 1, balanced: false } }),
+    (r) => r.summary.includes('⚠ 借贷不平衡')],
+  ['summary-preview', finalize('excel_write_range', TOOL_META.excel_write_range, { mode: 'preview' }, { ok: true, output: {} }),
+    (r) => r.summary.includes('预演（未改动）')],
+  ['summary-failure', finalize('excel_open', TOOL_META.excel_open, {}, { ok: false, error: '缺少 path' }),
+    (r) => /失败\[MISSING_PARAM\]: 缺少 path/.test(r.summary)],
 ]
 const badMode = modeCases.filter(([, r, ok]) => !ok(r))
 if (badMode.length) {
