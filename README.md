@@ -10,7 +10,7 @@ COM 驱动**真实 Office 实例**的 DeepSeek Harness（DSH）原生插件。�
 | 写死数值、无法重算 | 活公式链，`Application.Calculate` 取计算后值 |
 | 无 VBA / 无透视表 | 真实宏运行 + PivotCache/PivotTable 透视表 |
 
-## 工具（15 个）
+## 工具（21 个）
 
 **应用发现 / 启动**：`office_apps` · `office_launch`
 
@@ -22,7 +22,24 @@ COM 驱动**真实 Office 实例**的 DeepSeek Harness（DSH）原生插件。�
 
 **Word**：`word_open`（打开读结构）· `word_edit`（全文查找替换，真实 `Find.Execute` + `wdReplaceAll`，只改文本、保留原文格式）
 
-**会计旗舰**：`excel_journal_post`（写分录 + 借贷平衡校验，借≠贷标红）· `excel_ledger_gen`（日记账 → 科目总账，聚合借贷 + 余额公式）
+**会计旗舰（底层）**：`excel_journal_post`（写分录 + 借贷平衡校验，借≠贷标红）· `excel_ledger_gen`（日记账 → 科目总账，聚合借贷 + 余额公式）
+
+### 任务级工具（v0.4，6 个）
+
+底层工具各管一段、各自开关文件。任务级工具把**一整套业务步骤收进一次调用**——Agent 不必自己编排几十个 COM 步骤，也不会中途留下一个只写了一半的工作簿。
+
+| 工具 | 干什么 |
+|---|---|
+| `office_generate_accounting_report` | 一份交易数据（CSV / 内联数组）→ 日记账 + 借贷平衡 + 科目总账 + 透视表 + 强制重算 + 读回校验 → 落盘。模板永不被改动 |
+| `office_check_workbook` | **动手前的只读体检**：抓出所有求值出错的公式、外部链接、被保护的表、未保存改动，给 `safe_to_edit` 与逐条理由 |
+| `office_replace_document_terms` | Word 多术语批量替换（合同里的甲方乙方、金额日期…）。**先全部计数再统一替换**，保留原文格式 |
+| `office_update_monthly_report` | 按期间更新月度报告：只替换该期间的行，其他期间一行不动；同期间重跑是替换不是追加 |
+| `office_apply_template` | 把模板的**外观**（字体/颜色/边框/数字格式/列宽行高/冻结窗格）套到目标工作簿，**数据一行不动** |
+| `office_prepare_management_summary` | 从数据表出「管理层摘要」：按维度聚合 + TopN + 占比，有「期间」列时可给上期→本期对比 |
+
+任务级工具同样遵守执行模式与安全动作约定：都支持 `mode=preview`（真预演、不落笔），
+结果写 `output` 而不是改你的原文件，覆盖已存在的输出要显式 `overwrite:true`。
+`office_check_workbook` 是只读的，**不暴露 mode**——没实现 dry-run 差异的工具暴露 mode 只会误导。
 
 ## 执行模式（v0.3）
 
@@ -64,7 +81,7 @@ COM 驱动**真实 Office 实例**的 DeepSeek Harness（DSH）原生插件。�
 - `excel_pivot_create`：字段先对着表头校验（缺字段报 `SOURCE_RANGE_INVALID`，且不会留下孤儿工作表）；
   目标表与表名都取确定性名字，第二次跑**复用刷新**同一张（`idempotent_reuse:true`）而不是再堆一张
 
-## 统一结果协议（v0.2 / v0.3）
+## 统一结果协议（v0.2 / v0.3 / v0.4）
 
 所有工具返回同一信封，Agent 只读 `ok` / `error_code` / `retryable` 就能分支，不必解析 15 种各不相同的返回形状。
 
