@@ -1,7 +1,7 @@
 {
   "name": "@eqman00003/dsh-office-com",
   "description": "Windows 本机真实 Office 自动化插件（DSH）：契约、任务级、故障注入、进程泄漏回归已覆盖；真实 Office 测试需在目标机器上执行",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "main": "lib/index.mjs",
   "scripts": {
