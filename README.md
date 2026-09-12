@@ -245,6 +245,18 @@ dsh plugin add "github:wly8691-jpg/dsh-office-com#main"
 - Microsoft Excel / Word（真实实例）
 - Python + OfficeMCP（`officemcp` 包，含 pywin32）。默认探测 workbuddy Py3.13.12，可用环境变量 `OFFICE_PYTHON` 覆盖
 
+### 环境变量
+
+| 变量 | 作用 |
+|---|---|
+| `OFFICE_PYTHON` | 指定用哪个 python 起 OfficeMCP（默认自动探测） |
+| `OFFICE_FOLDER` | OfficeMCP 的工作目录（默认 `D:/OfficeMCP`） |
+| `DSH_OFFICE_STATE_DIR` | **状态目录**（锁文件与实例基线）的位置，默认 `~/.dsh-office-com`。**做测试隔离用这个** |
+
+> ⚠️ **别用改 `USERPROFILE` 的方式做隔离。** 踩过：改了之后任何 `Workbook.SaveAs` 都失败并报
+> `0x800A03EC`——Excel 作为 python 子进程继承了那个假家目录，`DefaultFilePath` 变空。
+> 要隔离状态目录就设 `DSH_OFFICE_STATE_DIR`，它只影响插件的锁文件位置，不污染 Office 的运行环境。
+
 ## 诊断：装完先确认这四件事
 
 **① 插件加载了没** —— 看 DSH 启动日志：

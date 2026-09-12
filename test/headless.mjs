@@ -1,7 +1,12 @@
 // headless.mjs — 无 DSH 直接加载插件真实工具，跑四链路验收
 //   excel_write_range → excel_pivot_create → excel_journal_post(balanced) → excel_ledger_gen
 // 运行: node test/headless.mjs
-// 环境: OFFICE_PYTHON 可选；USERPROFILE 指向可写目录（锁文件落在 <USERPROFILE>/.dsh-office-com）
+// 环境: OFFICE_PYTHON 可选。
+//
+// ⚠️ 别改 USERPROFILE 来做隔离——踩过：改了之后本套件（以及 flagship/tasks）全挂在
+//    Workbook.SaveAs → 0x800A03EC。根因不是直连 COM：Excel 作为 python 子进程继承了
+//    假家目录，DefaultFilePath 变空，于是**任何 SaveAs 都失败**。
+//    要隔离状态目录就设 DSH_OFFICE_STATE_DIR，它只影响插件的锁文件位置。
 import { apply } from '../lib/index.mjs'
 
 const tools = {}
