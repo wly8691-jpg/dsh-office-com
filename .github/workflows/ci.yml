@@ -22,6 +22,7 @@ jobs:
           node --check test/leakcheck.mjs
           node --check test/flagship.mjs
           node --check test/tasks.mjs
+          node --check test/faults.mjs
       - name: 注册冒烟（15 工具 + 降级路径 + v0.3 模式契约）
         run: npm test
       # 注意：test:e2e / test:leak / test:flagship 都要本机真实 Office，不在 CI 跑

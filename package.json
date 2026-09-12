@@ -9,7 +9,8 @@
     "test:e2e": "node test/smoke.mjs && node test/headless.mjs",
     "test:leak": "node test/leakcheck.mjs",
     "test:flagship": "node test/flagship.mjs",
-    "test:tasks": "node test/tasks.mjs"
+    "test:tasks": "node test/tasks.mjs",
+    "test:faults": "node test/faults.mjs"
   },
   "files": [
     "lib",
