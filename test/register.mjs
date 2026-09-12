@@ -31,6 +31,7 @@ const need = [
   // v0.4 任务级工具
   'office_generate_accounting_report', 'office_check_workbook',
   'office_replace_document_terms',
+  'office_update_monthly_report', 'office_apply_template', 'office_prepare_management_summary',
 ]
 const missing = need.filter((n) => !tools[n])
 if (missing.length) {
@@ -142,6 +143,7 @@ const mutating = [
   'excel_pivot_create', 'excel_pivot_refresh',
   'excel_journal_post', 'excel_ledger_gen', 'word_edit',
   'office_generate_accounting_report', 'office_replace_document_terms',
+  'office_update_monthly_report', 'office_apply_template', 'office_prepare_management_summary',
 ]
 const schemaBad = []
 for (const n of mutating) {
