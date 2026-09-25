@@ -249,13 +249,15 @@ dsh plugin add "github:wly8691-jpg/dsh-office-com#main"
 ## 环境要求
 
 - Microsoft Excel / Word（真实实例）
-- Python + OfficeMCP（`officemcp` 包，含 pywin32）。默认探测 workbuddy Py3.13.12，可用环境变量 `OFFICE_PYTHON` 覆盖
+- Python + OfficeMCP（`officemcp` 包，含 pywin32）。默认自动探测（读 workbuddy 的 `current` 指针，
+  取版本最高的 python），可用环境变量 `OFFICE_PYTHON`（插件专属）或 `DSH_PYTHON`（全局约定）覆盖
 
 ### 环境变量
 
 | 变量 | 作用 |
 |---|---|
-| `OFFICE_PYTHON` | 指定用哪个 python 起 OfficeMCP（默认自动探测） |
+| `OFFICE_PYTHON` | 指定用哪个 python 起 OfficeMCP（本插件专属，优先级最高） |
+| `DSH_PYTHON` | **全局 Python 约定**，与其他 Python 系插件（如 `dsh-plugin-writing-guard`）一致。优先级次之 |
 | `OFFICE_FOLDER` | OfficeMCP 的工作目录（默认 `D:/OfficeMCP`） |
 | `DSH_OFFICE_STATE_DIR` | **状态目录**（锁文件与实例基线）的位置，默认 `~/.dsh-office-com`。**做测试隔离用这个** |
 
