@@ -2,6 +2,41 @@
 
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。0.x 期间每版可能带行为变更，1.0 起以兼容性为约束。
 
+## 1.1.0
+
+三处静默缺陷，全部来自真机复测。**前两处会静默破坏用户数据**；因为改动了两处默认行为，
+按语义化版本走次版本而非补丁。
+
+### ⚠ 行为变更
+
+- **`word_edit` / `office_replace_document_terms` 的 `match_case` 默认 `true`（原为 false）。**
+  Word 在 `MatchCase=False` 时会把**被找到文本的大小写**套到替换文本上：被替换文本含
+  大写拉丁（如 `DSH`）时，替换文本里的 latin 会被强制大写。
+  实测读回 run 属性 `ALLCAPS=False` —— 是**真字符被改**，不是显示格式。这违反 Scholarship Lock
+  （文字不该被静默改动）。现在默认字面匹配；确需模糊匹配请显式传 `match_case: false`。
+- **`office_update_monthly_report` 遇到不合规表头改为报错，不再静默继续。**
+  原先判据只看「期间」列，于是「期间/科目/金额」这种表被判成自家产物：清空后按
+  `MONTHLY_HDR` 重写，`_row.get("借方")` 取不到 → **金额整列变 null，却仍报 `kept_rows=3` 成功**。
+  现在判据覆盖全部必需列（期间/借方/贷方），缺任一列即拒，报 `[SCHEMA_MISMATCH]` 并列出
+  缺失列与实有列。**原先"成功"的调用现在会失败 —— 这是有意的。**
+
+### 修复
+
+- **`word_edit` / `office_replace_document_terms`：计数与实际替换口径不一致。**
+  计数那遍用关键字参数、没设 `MatchCase`，走的是 Word Find 的**残留状态**；两遍可能一个
+  区分大小写、一个不区分，表现为"数出 N 处、实际替换 M 处"。现在两遍同口径。
+- **按名字取工作表失败时不再抛裸 COM 异常。**
+  `(-2147352567, '发生意外。', (0, None, None, None, 0, -2147352565), None)` 是
+  `DISP_E_EXCEPTION` 包着 `DISP_E_BADINDEX`，从字面看不出"工作表不存在"，排查成本极高。
+  新增 `PREAMBLE` 里的 `_sheet()` helper，报 `[SHEET_NOT_FOUND]` **并列出实有表名**；
+  8 处未受保护的取表点改用它。
+
+### 已知未修
+
+- `excel_journal_post` / `office_generate_accounting_report` 写入的日期形如
+  `2026-09-01T00:00:00+00:00` 而非 `2026-09-01`（观感/后续处理问题，不影响计算）
+- `excel_read_range` 对公式单元格可能返回 null（要拿计算值须配合 `excel_recalc`）
+
 ## 1.0.3
 
 **仅去内部标识，无功能变更。**
