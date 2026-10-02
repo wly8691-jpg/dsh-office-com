@@ -32,7 +32,7 @@
 
 - **冻结语义（命门）**：不分类条目排除在任何下游动作之外——不标注、不进影子方案、不清理、不进 ContextItem 流。要动它，必须先把目标类别**显式确认**；默认永不自动处理。
 - `.sample` / `.example`（实测 31 个）已并入 **code** 池，不落不分类。
-- 容器（`.zip .7z .rar .tar .gz`）**不猜**：无扩展名时 magic 判 `mixed`，带扩展名时 unclaimed → unrecognized。
+- 容器（`.zip .7z .rar .tar .gz`）**不猜**：无扩展名时 magic 判 `mixed`；带扩展名但无池认领 → **回落 magic 嗅探**（🟠-4，2026-10-03：改名 .dat 的 PDF 按内容判；有信号归池，无信号才落 unrecognized）；magic 认出但无池可归（gzip/rar/7z）→ unrecognized + 原因码 `unknown-magic`（🟠-3）。
 
 ## 边界与规则（显式声明，不许默默如此）
 
@@ -42,6 +42,12 @@
 4. **v1 无任何 move/rename/delete 代码路径**——影子方案（P2）只出方案不动文件；`kb_apply_scheme`、journal、undo 整体后置。
 5. **VBA 备用通道**：主路是 COM 对象模型（FSO + Excel 只读开簿）。VBA 通道需要 Excel 信任中心「信任对 VBA 工程对象模型的访问」（`AccessVBOM`）——本机未开启，工具如实报 `VBA_ACCESS_DENIED`；不假装成功、不静默跳过、不写进安装步骤。需要时由峄手动开。
 6. **深扫容器预检**：`.xlsx/.xlsm` 必须 PK 头、`.xls` 必须 OLE2 头——非法容器（截断/伪造件）直接软失败 `not-a-valid-workbook-container`，**绝不递给 Excel**（真机实测：伪 xlsx 会触发修复对话框挂死通道）。
+
+## 身份命名空间契约（OCR 🟠-8，2026-10-03）
+
+- 扫描身份（fingerprint / source_uri）**按 root 作用域**：root 相对路径 + size + mtime_ns。
+- 跨 root **不得合并**裸 entries 字典（同相对路径+同大小+同 mtime 会互撞）——kb 工具按
+  `root_id = sha256(realpath(root))[:16]` 分目录存放，天然分域。
 
 ## 明确没做什么（本版本）
 

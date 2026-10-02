@@ -3,10 +3,11 @@
 //   合成树（需 COM 通道）：分类/指纹稳定/不分类两档/artifact 只落状态目录
 //   VBA 通道：本机信任中心未开 → 如实 VBA_ACCESS_DENIED（这是它今天的真实行为，不是错误）
 // 运行: node test/kb-scan.mjs
-import { apply, findPython, cleanupOwnedApps } from '../lib/index.mjs'
+import { apply, findPython, cleanupOwnedApps, runPython } from '../lib/index.mjs'
 import { mkdtempSync, mkdirSync, writeFileSync, existsSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { readFileSync } from 'node:fs'
 
 const tools = {}
 apply({ tools: { register: (t) => { tools[t.name] = t } } })
@@ -53,7 +54,8 @@ writeFileSync(join(tree, 'a.md'), 'hello', 'utf-8')
 writeFileSync(join(tree, 'sub', 'b.md'), 'world', 'utf-8')
 writeFileSync(join(tree, 'conf.sample'), 'cfg', 'utf-8')
 writeFileSync(join(tree, 'junk.pyc'), 'compiled', 'utf-8')
-writeFileSync(join(tree, 'weird.xyz'), 'mystery', 'utf-8')
+writeFileSync(join(tree, 'weird.xyz'), 'mystery', 'utf-8')      // 文本内容 → 🟠-4 后判 text
+writeFileSync(join(tree, 'bin.xyz'), '\x00\x01bin', 'utf-8')  // 二进制内容 → unrecognized
 writeFileSync(join(tree, 'noext-text'), 'plain', 'utf-8')
 writeFileSync(join(tree, 'noext-bin'), '\x00\x01\x02', 'utf-8')
 writeFileSync(join(tree, '.env'), 'secret', 'utf-8')          // 点文件：整类跳过
@@ -76,9 +78,11 @@ if (!py) {
     ok('.pyc → not-material 档（P1.5-2）',
        byUri('file://junk.pyc')?.pool === 'not-material' &&
        byUri('file://junk.pyc')?.tier === 'not-material')
-    ok('.xyz → unrecognized + 原因码 unclaimed-extension',
-       byUri('file://weird.xyz')?.pool === 'unknown' &&
-       byUri('file://weird.xyz')?.reason === 'unclaimed-extension')
+    ok('.xyz 文本内容 → text（🟠-4 回落 magic）',
+       byUri('file://weird.xyz')?.pool === 'text' && byUri('file://weird.xyz')?.classified_by === 'magic')
+    ok('.xyz 二进制内容 → unrecognized + unclaimed-extension',
+       byUri('file://bin.xyz')?.pool === 'unknown' &&
+       byUri('file://bin.xyz')?.reason === 'unclaimed-extension')
     ok('无扩展名文本 → text（magic）', byUri('file://noext-text')?.pool === 'text')
     ok('无扩展名二进制 → unknown + no-extension',
        byUri('file://noext-bin')?.pool === 'unknown' &&
@@ -94,7 +98,7 @@ if (!py) {
 
     // 不分类两档分列 + 排序（unrecognized 在前）
     const u = out.unclassified || {}
-    ok('unrecognized 头条非空且含 .xyz', (u.unrecognized || []).some((e) => e.source_uri.endsWith('weird.xyz')))
+    ok('unrecognized 头条非空且含 bin.xyz', (u.unrecognized || []).some((e) => e.source_uri.endsWith('bin.xyz')))
     ok('not-material 尾段含 .pyc', (u.not_material || []).some((e) => e.source_uri.endsWith('junk.pyc')))
 
     // artifact 只落状态目录，绝不写被测目录
@@ -108,9 +112,21 @@ if (!py) {
     console.log(`[kb-scan] vba_channel = ${out.vba_channel}（本机实测值；未开 AccessVBOM 时 VBA_ACCESS_DENIED 即正确行为）`)
     ok('vba_channel 字段存在', typeof out.vba_channel === 'string')
 
-    // 深扫：max_deep>0 会真开 Excel——本机 xlsx 是假容器，预期逐簿软失败不崩
-    const rd = await kb.execute({ root: tree, max_deep: 2 })
-    ok('深扫路径不崩（假 xlsx 软失败）', rd.ok === true && Array.isArray(rd.output?.deep))
+    // 深扫真机回归（OCR 🔴-1，修复前相对路径 bug 使深扫从未跑通）：
+    // 生成一个【真】xlsx → max_deep 开簿 → 必须取到表头
+    const genCode = readFileSync(new URL('./fixtures/make-xlsx.py', import.meta.url), 'utf8')
+    const gen = await runPython(genCode, JSON.stringify({ path: join(tree, 'real-deep.xlsx') }))
+    ok('真 xlsx 生成成功', gen.success === true)
+    const rd = await kb.execute({ root: tree, max_deep: 3 })
+    ok('深扫不崩', rd.ok === true && Array.isArray(rd.output?.deep))
+    const deepEntries = rd.output?.deep || []
+    const fake = deepEntries.find((d) => (d.source_uri || '').endsWith('sheet.xlsx'))
+    ok('假容器（PK 头合法但内容损坏）走 Excel 真开并软失败', fake && !!fake.error)
+    const real = deepEntries.find((d) => (d.source_uri || '').endsWith('real-deep.xlsx'))
+    const header = real?.sheets?.[0]?.header || []
+    ok('真 xlsx 深扫取到表头（🔴-1 回归）', header.includes('指标') && header.includes('数值'))
+    ok('深扫拿到 used_range 与工作表名',
+       !!real?.sheets?.[0]?.used_range && real?.sheets?.[0]?.name === '数据')
   }
 }
 
