@@ -32,6 +32,8 @@ const need = [
   'office_generate_accounting_report', 'office_check_workbook',
   'office_replace_document_terms',
   'office_update_monthly_report', 'office_apply_template', 'office_prepare_management_summary',
+  // v1.2.0 kb
+  'kb_scan_root',
 ]
 const missing = need.filter((n) => !tools[n])
 if (missing.length) {
@@ -177,7 +179,7 @@ for (const n of mutating) {
   if ((tools[n].parameters.required || []).includes('mode')) schemaBad.push(`${n}: mode 不该是必填（会破坏现有调用）`)
   // 只读工具不该被塞模式参数：它们没有 dry-run 差异，塞了只会让 Agent 以为能预演
 }
-for (const n of ['excel_read_range', 'excel_recalc', 'excel_open', 'word_open', 'office_apps']) {
+for (const n of ['excel_read_range', 'excel_recalc', 'excel_open', 'word_open', 'office_apps', 'kb_scan_root']) {
   if (tools[n].parameters.properties.mode) schemaBad.push(`${n}: 只读工具不该带 mode`)
 }
 if (schemaBad.length) {
