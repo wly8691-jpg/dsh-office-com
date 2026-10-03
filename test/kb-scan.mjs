@@ -112,6 +112,15 @@ if (!py) {
     console.log(`[kb-scan] vba_channel = ${out.vba_channel}（本机实测值；未开 AccessVBOM 时 VBA_ACCESS_DENIED 即正确行为）`)
     ok('vba_channel 字段存在', typeof out.vba_channel === 'string')
 
+    // 回归钉（第二轮审查 critical）：无 office 档的树 → cands 空 → 不起 Excel，一级结果完整返回
+    const bare = join(sandbox, 'bare')
+    mkdirSync(bare, { recursive: true })
+    writeFileSync(join(bare, 'note.md'), 'text only', 'utf-8')
+    const rb = await kb.execute({ root: bare })
+    ok('cands 空：不起 Excel，一级结果完整返回',
+       rb.ok === true && rb.output?.stats?.files_registered === 1 &&
+       Array.isArray(rb.output?.deep) && rb.output.deep.length === 0)
+
     // 深扫真机回归（OCR 🔴-1，修复前相对路径 bug 使深扫从未跑通）：
     // 生成一个【真】xlsx → max_deep 开簿 → 必须取到表头
     const genCode = readFileSync(new URL('./fixtures/make-xlsx.py', import.meta.url), 'utf8')
