@@ -36,6 +36,8 @@ const need = [
   'kb_scan_root',
   // v1.2.1 P2-a 分类学
   'kb_taxonomy_get', 'kb_taxonomy_set',
+  // v1.2.1 P2-b 分类与影子方案
+  'kb_classify', 'kb_scheme_propose',
 ]
 const missing = need.filter((n) => !tools[n])
 if (missing.length) {

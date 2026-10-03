@@ -8,6 +8,9 @@
 | 工具 | 读/写 | 说明 |
 |---|---|---|
 | `kb_scan_root` | 只读 | 登记任意目录树：扩展名 + magic 双判据分类；认不出 → 「不分类」桶（两档 + 原因码）；`max_deep>0` 按配额只读开簿深扫 Excel 结构；产物落状态目录 |
+| `kb_taxonomy_get` / `kb_taxonomy_set` | 只读 / 变更 | 分类学（自长分类）：增/改名/合并/删 + 漂移审计（重叠/环/悬空），落 kb/<root_id>/taxonomy.json |
+| `kb_classify` | 只读 | 机械规则分类（ext / name-contains / path-contains）；冻结桶不参与；semantics 如实声明 |
+| `kb_scheme_propose` | 只读 | 影子目录方案（label 链 + 原文件名，重名加指纹前缀）；scheme-<plan_id>.json 落状态目录 |
 
 ### 身份与词表对齐纪律（跨仓，必须两边一起改）
 
@@ -30,7 +33,7 @@
 | `not-material` | 本就不是资料（派生物/可执行/快捷方式/VCS 内部件） | 扩展名 ∈ KB_NOT_MATERIAL（`.pyc .exe .dll .lnk .url .rev .pack .idx .msi .class`） |
 | `unrecognized` | 认不出、可能有用 | 原因码：`no-extension`（无扩展名且 magic 不匹配）/ `unclaimed-extension`（扩展名没人认领）/ `unreadable` |
 
-- **冻结语义（命门）**：不分类条目排除在任何下游动作之外——不标注、不进影子方案、不清理、不进 ContextItem 流。要动它，必须先把目标类别**显式确认**；默认永不自动处理。
+- **冻结语义（命门）**：不分类条目排除在任何下游动作之外——不标注、不进影子方案、不清理、不进分类流（kb_classify/kb_scheme_propose 均跳过）。要动它，必须先把目标类别**显式确认**；默认永不自动处理。
 - `.sample` / `.example`（实测 31 个）已并入 **code** 池，不落不分类。
 - 容器（`.zip .7z .rar .tar .gz`）**不猜**：无扩展名时 magic 判 `mixed`；带扩展名但无池认领 → **回落 magic 嗅探**（🟠-4，2026-10-03：改名 .dat 的 PDF 按内容判；有信号归池，无信号才落 unrecognized）；magic 认出但无池可归（gzip/rar/7z）→ unrecognized + 原因码 `unknown-magic`（🟠-3）。
 
