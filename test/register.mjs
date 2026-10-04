@@ -38,6 +38,8 @@ const need = [
   'kb_taxonomy_get', 'kb_taxonomy_set',
   // v1.2.1 P2-b 分类与影子方案
   'kb_classify', 'kb_scheme_propose',
+  // v1.2.1 P3 标注与核账
+  'kb_annotate', 'kb_verify',
 ]
 const missing = need.filter((n) => !tools[n])
 if (missing.length) {
