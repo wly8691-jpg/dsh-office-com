@@ -40,7 +40,10 @@
 ## 边界与规则（显式声明，不许默默如此）
 
 1. **点文件/点目录整类跳过**（`.env` / `.gitignore` / `.obsidian` / `.git` …）——`.env` 这类文件**连登记都没有**，这是继承 knowlp 侧 pool_scan 的既有行为，**保留**；需要登记它们时必须显式改规则并在此记录。
-2. **Obsidian 硬守卫**：`KNOWLP_VAULT`（env）解析出的真实路径与 root **任何方向重叠**（相等/互相包含）→ `VAULT_FORBIDDEN`，纯 JS 判断、先于 COM 通道（降级态也生效）。有测试钉住。
+2. **标注指纹语义（★4/★5，2026-10-05）**：`kb_annotate` 成功写回后会**重新 stat 并把写回后的新指纹存进标注**——`kb_verify` 直接对新指纹核账，**不再报警**；但 `registry.json` 里的旧指纹要**重扫（kb_scan_root）才刷新**。写回失败/未写回时，标注存调用方给的指纹，文件若已变 → verify 如实报 `fingerprint-changed`。
+3. **sensitivity 缺省 = private（★7，2026-10-05 峄定）**：标注未显式给 sensitivity 时落 `private`——**缺省拒绝云回退**，要放行某类资料需显式打 `public`（本 vault 过半为内部/商业件，缺省 public = 默认外送，是有害默认）。
+4. **写回范围 = 仅 `.md` 前置元数据（★6 设计边界，非"暂未实现"）**：Office 文件（xlsx/docx/pptx）**没有写回能力**——那是真改业务数据，需按格式各自设计 preview/confirm/回滚后另开批次；对 Office 资料调用 write_back 只会登记不落盘（`wb_warning` 提示）。
+5. **Obsidian 硬守卫**：`KNOWLP_VAULT`（env）解析出的真实路径与 root **任何方向重叠**（相等/互相包含）→ `VAULT_FORBIDDEN`，纯 JS 判断、先于 COM 通道（降级态也生效）。有测试钉住。
 3. **符号链接/junction 默认不追**；已见目录（realpath 去重）防环。
 4. **v1 无任何 move/rename/delete 代码路径**——影子方案（P2）只出方案不动文件；`kb_apply_scheme`、journal、undo 整体后置。
 5. **VBA 备用通道**：主路是 COM 对象模型（FSO + Excel 只读开簿）。VBA 通道需要 Excel 信任中心「信任对 VBA 工程对象模型的访问」（`AccessVBOM`）——本机未开启，工具如实报 `VBA_ACCESS_DENIED`；不假装成功、不静默跳过、不写进安装步骤。需要时由峄手动开。
