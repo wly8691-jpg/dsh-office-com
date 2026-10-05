@@ -5,6 +5,7 @@
 // 运行: node test/kb-scan.mjs
 import { apply, findPython, cleanupOwnedApps, runPython } from '../lib/index.mjs'
 import { mkdtempSync, mkdirSync, writeFileSync, existsSync, readdirSync, rmSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { readFileSync } from 'node:fs'
@@ -120,6 +121,31 @@ if (!py) {
     ok('cands 空：不起 Excel，一级结果完整返回',
        rb.ok === true && rb.output?.stats?.files_registered === 1 &&
        Array.isArray(rb.output?.deep) && rb.output.deep.length === 0)
+
+    // ★12 回归钉（2026-10-06 真实复现）：root 内 junction → root 外目录，
+    // 默认一级扫描绝不能登记 root 外的文件。junction 是 reparse 点不是
+    // symlink——is_symlink 挡不住，realpath 环守卫只防回头不防首越；
+    // mklink /J 无需权限，这根钉本机真跑。
+    {
+      const outDir = join(sandbox, 'outside')
+      mkdirSync(outDir, { recursive: true })
+      writeFileSync(join(outDir, 'secret.md'), 'outside', 'utf-8')
+      const jRoot = join(sandbox, 'jroot')
+      mkdirSync(jRoot, { recursive: true })
+      writeFileSync(join(jRoot, 'top.md'), 'top', 'utf-8')
+      const jk = spawnSync('cmd', ['/c', 'mklink', '/J', join(jRoot, 'link-out'), outDir])
+      if (jk.status !== 0) {
+        console.log('[kb-scan] SKIP junction 钉：mklink 被拒（如实跳过）')
+      } else {
+        const rj = await kb.execute({ root: jRoot })
+        const jent = Object.values(rj.output?.entries || {})
+        ok('★12 junction 越界：secret.md 不被登记，root 内文件照常',
+           rj.ok === true &&
+           !jent.some((e) => (e.source_uri || '').includes('secret.md')) &&
+           jent.some((e) => e.source_uri === 'file://top.md'))
+        spawnSync('cmd', ['/c', 'rmdir', join(jRoot, 'link-out')])
+      }
+    }
 
     // 深扫真机回归（OCR 🔴-1，修复前相对路径 bug 使深扫从未跑通）：
     // 生成一个【真】xlsx → max_deep 开簿 → 必须取到表头
