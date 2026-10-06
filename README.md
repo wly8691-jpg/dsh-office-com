@@ -12,7 +12,7 @@ COM 驱动**真实 Office 实例**的 DeepSeek Harness（DSH）原生插件。�
 | 写死数值、无法重算 | 活公式链，`Application.Calculate` 取计算后值 |
 | 无 VBA / 无透视表 | 真实宏运行 + PivotCache/PivotTable 透视表 |
 
-## 工具（21 个）
+## 工具（29 个）
 
 **应用发现 / 启动**：`office_apps` · `office_launch`
 
@@ -43,9 +43,37 @@ COM 驱动**真实 Office 实例**的 DeepSeek Harness（DSH）原生插件。�
 结果写 `output` 而不是改你的原文件，覆盖已存在的输出要显式 `overwrite:true`。
 `office_check_workbook` 是只读的，**不暴露 mode**——没实现 dry-run 差异的工具暴露 mode 只会误导。
 
+### kb_* —— 陌生目录的自建分类仓库（v1.2，8 个）
+
+**这一族就是 Office × KnowLP 的组合面。** Office 知道「这是什么文件、能不能真被打开」，KnowLP 知道「它在讲什么」，合起来让 Agent 在**陌生环境**里登记一棵目录树、自己长出分类体系——**不是**给 Obsidian vault 加功能。
+
+| 工具 | 读/写 | 干什么 |
+|---|---|---|
+| `kb_scan_root` | 只读 | 登记任意目录树：扩展名 + magic 双判据分类；认不出的一律进「不分类」桶并**显式给原因码**（绝不猜）。`max_deep>0` 时按配额**只读开簿**深扫 Excel 结构 |
+| `kb_taxonomy_get` / `kb_taxonomy_set` | 只读 / 变更 | 自长分类学：增 / 改名 / 合并 / 删；每次变更**自带漂移审计**（重叠 / 环 / 悬空） |
+| `kb_classify` | 只读 | 按分类学规则归档；`use_semantics=true` 时走 **KnowLP 语义缝**（见下） |
+| `kb_scheme_propose` | 只读 | 影子目录方案（label 链 + 原文件名，重名加指纹前 8 位）——**只出方案，不碰任何文件** |
+| `kb_annotate` | 变更 | 写标注（`annotations.jsonl`）；写回原文件默认关，`write_back && confirm` 双闸 |
+| `kb_verify` | 只读 | 核账：标注可解析 / 源文件指纹吻合 / 影子方案与磁盘一致 |
+| `kb_write_back_office` | 变更 | 对单个 Office 文件写删 `kb_*` 自定义文档属性——**只碰属性面板，绝不碰单元格 / 正文 / 幻灯片** |
+
+**组合面在哪 —— KnowLP 语义缝。** `kb_classify(use_semantics=true)` 把待归类的资料交给 KnowLP 检索，走**三级梯子**，每一级都如实回报走到了哪：
+
+```
+approved     经 ctx.tools.execute 审批派发（正路）
+direct       拿不到审批通道时降级直连（仅降级用）
+unavailable  KnowLP 不可用 → 如实声明 + next_call_suggestion
+```
+
+两处细节值得记住，都是踩出来的：**工具名按注册表里的实际名字解析**（MCP 接入下是 `mcp__<server>__*` 形状，写死 `knowlp_search` 必然查不到）；**断链 / 失败 / 不可用一律显式降级并带回错误，绝不假装做了语义判断**。
+
+还有一条**跨仓纪律**：指纹公式（`sha256(rel_posix \0 size \0 mtime_ns)`）、词表（本仓 `KB_*` ↔ KnowLP 侧 `pool_scan.*`）、命名空间（按 root 分域，禁止跨根合并裸条目）——**任一边改，同一提交里改另一边**。
+
+细节见 [`docs/kb.md`](docs/kb.md)。
+
 ## 执行模式（v0.3）
 
-13 个会改动文档的工具都接受 `mode`（8 个底层写工具 + 5 个任务级）。**缺省按有无 `path` 推断**，所以老调用一字不改。
+14 个会改动文档的工具都接受 `mode`（8 个底层写工具 + 5 个任务级 + `kb_write_back_office`）。**缺省按有无 `path` 推断**，所以老调用一字不改。
 
 | mode | 干什么 | 什么时候用 |
 |---|---|---|
@@ -283,7 +311,7 @@ dsh plugin add "github:wly8691-jpg/dsh-office-com#main"
 `excel: false` 说明本机没装 Excel；整条 `ok: false` 说明通道没起来。
 
 **③ 契约层完好没** —— 在仓库目录跑 `npm test`。这一项**不需要 Office**，
-能把 21 个工具注册、信封/模式/schema 契约全过一遍，所以 CI 也跑它。
+能把 29 个工具注册、信封/模式/schema 契约全过一遍，所以 CI 也跑它。
 
 **④ 端到端** —— `npm run test:e2e`（需真实 Office）。
 
@@ -326,7 +354,7 @@ rm -rf ~/.dsh-office-com      # 状态目录：SSE 锁文件与实例基线
 | **自己实现 VBA** | 只负责"把已有宏跑起来"，不做宏语言的解释器 |
 | **文件级读写** | 不碰 openpyxl / exceljs / docx 那条路——那是另一类插件的地盘，本插件的差异化正是"操作运行中的实例" |
 | **完整 Web 管理后台** | 没有 UI。输出是工具返回值，报告类产物由调用方（Agent）决定怎么用 |
-| **无边界增加底层工具** | 已收敛：15 个底层 + 6 个任务级。新增要走"这是不是真任务级需求"的判断，不再堆 API |
+| **无边界增加底层工具** | 已收敛：15 个底层 + 6 个任务级 + 8 个 `kb_*`。新增要走"这是不是真任务级需求"的判断，不再堆 API |
 | **与特定记忆后端耦合** | 不依赖任何记忆系统。它只做 Office 执行，上下文由上层 Agent 提供 |
 
 > **一句话**：它不是通用办公平台，也不是文件读写库。它是**在 Windows 上安全、可验证地操作正在运行的 Excel / Word** 的那一层。
