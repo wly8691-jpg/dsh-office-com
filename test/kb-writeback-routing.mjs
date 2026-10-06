@@ -30,11 +30,14 @@ const rootId = createHash('sha256').update(realpathSync(ROOT)).digest('hex').sli
 const dir = join(STATE, 'kb', rootId)
 mkdirSync(dir, { recursive: true })
 
+// 指纹必须按**真 registry 的口径**造：registry 的指纹由 Python 侧 pool_scan 算，
+// 它对 Node 的等价值是 bigint 下的 mtimeNs（B1：`st.st_mtime_ns` 在 JS 里是 undefined，
+// 拿它造的"指纹"永远对不上真 registry —— 探针自己也会中这个坑）。
 const mk = (name, bytes) => {
   const p = join(ROOT, name)
   writeFileSync(p, bytes)
-  const st = statSync(p)
-  return createHash('sha256').update(`${name}\x00${st.size}\x00${st.st_mtime_ns}`).digest('hex')
+  const st = statSync(p, { bigint: true })
+  return createHash('sha256').update(`${name}\x00${st.size}\x00${st.mtimeNs}`).digest('hex')
 }
 
 const fpXlsx = mk('book.xlsx', 'fake-workbook-bytes-the-seam-is-stubbed')
@@ -81,8 +84,10 @@ check('② seam 失败 -> 有 wb_warning', /Office 写回失败/.test(String(r.o
 r = await kbAnnotateImpl(
   { root: ROOT, fingerprint: fpXlsx, note: 'x', write_back: true },
   { officeWriter: okWriter })
-check('③ 缺 confirm -> 不写回', r.output.write_back === false && r.output.wb_warning === null,
-  JSON.stringify(r.output))
+check('③ 缺 confirm -> 不写回', r.output.write_back === false, JSON.stringify(r.output))
+check('③ 缺 confirm -> 有说明（B6：被闸挡住要说出来）',
+  /双闸需 write_back:true 且 confirm:true/.test(String(r.output.wb_warning)),
+  String(r.output.wb_warning))
 
 seen = null
 r = await kbAnnotateImpl(
@@ -97,6 +102,15 @@ r = await kbAnnotateImpl(
 check('⑤ 无 seam -> 只登记并说明',
   r.output.write_back === false && /需 host 提供审批 seam/.test(String(r.output.wb_warning)),
   String(r.output.wb_warning))
+
+// ⑥ B1 回归钉（DSH 验收 2026-10-06）：Node 侧算的指纹必须与 registry（Python 算）**相等**。
+// 原实现取 `st.st_mtime_ns`（Python 的属性名）在 JS 里恒 undefined ⇒ 指纹永远对不上 ⇒
+// 标注恒 unverifiable、kb_verify 恒报 fingerprint-changed、写回后重算的"新指纹"同样是错的。
+r = await kbAnnotateImpl({ root: ROOT, fingerprint: fpXlsx, note: 'B1 pin' }, {})
+check('⑥ B1：完好文件 unverifiable=false', r.output.annotation.unverifiable === false,
+  'unverifiable=' + r.output.annotation.unverifiable)
+check('⑥ B1：落库指纹 == registry 指纹', r.output.annotation.fingerprint === fpXlsx,
+  r.output.annotation.fingerprint + ' vs ' + fpXlsx)
 
 rmSync(ROOT, { recursive: true, force: true })
 rmSync(STATE, { recursive: true, force: true })
