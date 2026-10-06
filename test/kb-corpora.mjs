@@ -1,24 +1,21 @@
 // 四语料实测（工单 §七 验收集，只读一级扫描）——结果落 §六
+//
+// ⚠️ 语料清单**不进仓**：真实路径与本机业务目录名都是私人数据（公开仓红线）。
+// 照本仓已有的 `.local.*` 先例：清单放 `test/corpora.local.json`（已 gitignore），
+// 格式 `[["标签", "绝对路径"], ...]`。文件不在就跳过 —— 跳过不是失败。
+import { existsSync, readFileSync } from 'node:fs'
 import { apply } from '../lib/index.mjs'
 const tools = {}
 apply({ tools: { register: (t) => { tools[t.name] = t } } })
 const kb = tools.kb_scan_root
 
-const corpora = [
-  ['Desktop(root)', 'C:\\Users\\wly10\\Desktop'],
-  ['TradingAgents recap_data', 'D:\\TradingAgents'],
-  ['Desktop 业务三项目', 'C:\\Users\\wly10\\Desktop'],
-  ['a-stock-data-quant', 'D:\\a-stock-data-quant'],
-]
-// 语料 ③ 的三个项目目录逐个扫（与 ① 的根分开统计无意义，改为三个子目录直扫）
-const batch = [
-  ['①Desktop', 'C:\\Users\\wly10\\Desktop'],
-  ['②TradingAgents', 'D:\\TradingAgents'],
-  ['③海家电商项目', 'C:\\Users\\wly10\\Desktop\\海家电商项目'],
-  ['③词元商务', 'C:\\Users\\wly10\\Desktop\\词元商务'],
-  ['③混粮出口', 'C:\\Users\\wly10\\Desktop\\混粮出口'],
-  ['④a-stock-data-quant', 'D:\\a-stock-data-quant'],
-]
+const LIST_PATH = new URL('./corpora.local.json', import.meta.url)
+if (!existsSync(LIST_PATH)) {
+  console.log('[kb-corpora] 跳过：没有 test/corpora.local.json（私人语料清单，不入仓）')
+  console.log('  格式：[["标签", "绝对路径"], ...]')
+  process.exit(0)
+}
+const batch = JSON.parse(readFileSync(LIST_PATH, 'utf8'))
 for (const [name, root] of batch) {
   const t0 = Date.now()
   const r = await kb.execute({ root, max_files: 50000 })

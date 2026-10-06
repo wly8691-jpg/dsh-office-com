@@ -2,3 +2,6 @@ node_modules/
 *.log
 dev.patch.yml
 .office.lock
+
+# 私人语料清单（真实路径 + 本机业务目录名），照 .local.* 先例不入仓
+test/corpora.local.json
