@@ -1,0 +1,62 @@
+name: release
+
+# Guarantees that every published tag has a GitHub Release. Runs on main rather
+# than on the tag itself so that a tag pushed before this workflow existed still
+# gets one -- the first run backfills -- and so that a release never depends on
+# someone remembering to click. Both checks below exit early, so the common case
+# (tag not cut yet, or release already there) costs a few seconds.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write   # required to create the release
+
+jobs:
+  ensure-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0     # tags are not fetched by default
+          fetch-tags: true
+      - name: Create the release if this tag has none
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          VERSION=$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' package.json | head -1)
+          TAG="v$VERSION"
+          echo "package.json says $VERSION, tag $TAG"
+
+          if ! git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "$TAG is not tagged yet - nothing to release"
+            exit 0
+          fi
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "$TAG already has a release"
+            exit 0
+          fi
+
+          NOTES=$(mktemp)
+          python3 - "$VERSION" > "$NOTES" <<'PY'
+          import pathlib, re, sys
+          version = sys.argv[1]
+          path = pathlib.Path('CHANGELOG.md')
+          if path.exists():
+              text = path.read_text(encoding='utf-8')
+              m = re.search(rf'^## {re.escape(version)}\s*$', text, re.M)
+              if m:
+                  rest = text[m.end():]
+                  nxt = re.search(r'^## ', rest, re.M)
+                  print((rest[:nxt.start()] if nxt else rest).strip())
+          PY
+
+          if [ -s "$NOTES" ]; then
+            echo "using the CHANGELOG section for $VERSION"
+            gh release create "$TAG" --title "$TAG" --notes-file "$NOTES"
+          else
+            echo "no CHANGELOG section for $VERSION - falling back to generated notes"
+            gh release create "$TAG" --title "$TAG" --generate-notes
+          fi
