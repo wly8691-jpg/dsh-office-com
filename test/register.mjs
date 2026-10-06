@@ -40,6 +40,8 @@ const need = [
   'kb_classify', 'kb_scheme_propose',
   // v1.2.1 P3 标注与核账
   'kb_annotate', 'kb_verify',
+  // v1.2.2 Office 写回（第九批 ★6）
+  'kb_write_back_office',
 ]
 const missing = need.filter((n) => !tools[n])
 if (missing.length) {
@@ -176,6 +178,7 @@ const mutating = [
   'excel_journal_post', 'excel_ledger_gen', 'word_edit',
   'office_generate_accounting_report', 'office_replace_document_terms',
   'office_update_monthly_report', 'office_apply_template', 'office_prepare_management_summary',
+  'kb_write_back_office',
 ]
 const schemaBad = []
 for (const n of mutating) {
