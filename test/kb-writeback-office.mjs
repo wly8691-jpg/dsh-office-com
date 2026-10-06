@@ -39,7 +39,16 @@ const PROPS = { kb_note: NOTE, kb_sensitivity: 'private' }
 const MAKE = `
 import json, os
 args = json.loads(data) if data else {}
+import pythoncom
 from win32com.client import DispatchEx
+# COM apartment must be initialised on this thread before any DispatchEx. The
+# plugin's own blobs do it in their preamble (index.mjs:811 spells out the
+# -2147221008 you get otherwise); this snippet is a bare RunPython payload, so
+# it has to do it itself. Without it the test only passes when some earlier
+# blob already initialised the apartment in the same SSE process -- i.e. it is
+# order-dependent and fails on a cold process. Reproduced 2026-10-07: T1/T2
+# failed with CO_E_NOTINITIALIZED while T5 passed in the same run.
+pythoncom.CoInitialize()
 p = args['path']; ext = os.path.splitext(p)[1].lower()
 if ext == '.docx':
     a = DispatchEx('Word.Application'); a.Visible = False; a.DisplayAlerts = False
