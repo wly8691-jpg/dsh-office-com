@@ -22,9 +22,9 @@ const annotate = tools.kb_annotate
 if (!wbo || !verify || !scan || !annotate) { console.error('[kb-wb] FAIL: 工具未注册齐'); process.exit(1) }
 
 let failures = 0
-const ok = (name, cond) => {
+const ok = (name, cond, detail) => {
   if (cond) console.log(`[kb-wb] OK ${name}`)
-  else { failures++; console.error(`[kb-wb] FAIL ${name}`) }
+  else { failures++; console.error(`[kb-wb] FAIL ${name}${detail ? '  <- ' + detail : ''}`) }
 }
 
 const PROPS = { kb_note: '写回语义钉测试 2026-10-06', kb_sensitivity: 'private' }
@@ -97,7 +97,9 @@ ok('T4 写回改指纹 → fingerprint-changed 如实报（kb.md 语义：写回
 const ann2 = await annotate.execute({ root: corpus, fingerprint: fp0, note: PROPS.kb_note, sensitivity: 'private' })
 ok('T4 重标注落新指纹', ann2.ok === true)
 const v2 = await verify.execute({ root: corpus, office_properties: true })
-ok('T4 重标注后 verify clean（含 office 属性路）', v2.ok === true && v2.output?.clean === true)
+ok('T4 重标注后 verify clean（含 office 属性路）',
+   v2.ok === true && v2.output?.clean === true,
+   JSON.stringify({ problems: v2.output?.problems, ann2: ann2.output?.annotation?.fingerprint, fp0 }))
 
 // ── T5 回滚 ──
 const rb = await wbo.execute({ path: book, properties: PROPS, rollback: true, mode: 'managed', confirm: true })
