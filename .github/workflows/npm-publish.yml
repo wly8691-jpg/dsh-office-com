@@ -1,0 +1,43 @@
+name: npm-publish
+
+# npm Trusted Publishing: pushing a v* tag publishes via OIDC short-lived
+# credentials, so no npm token and no 2FA prompt are involved. Before the first
+# run, add the trusted publisher in the npmjs.com package settings
+# (owner=wly8691-jpg, repo=dsh-office-com, workflow=npm-publish.yml).
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  id-token: write   # OIDC — required for trusted publishing
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Publish
+        # idempotent: skip if the version is already published, so re-pushing a
+        # tag or rewriting history cannot break the run.
+        # npm 11 is installed explicitly because trusted publishing needs its
+        # OIDC end-to-end path; npm 10 only signs provenance over OIDC while the
+        # registry PUT stays anonymous (404 "is not in this registry").
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "@eqman00003/dsh-office-com@$VERSION" version >/dev/null 2>&1; then
+            echo "v$VERSION already published — skip"
+            exit 0
+          fi
+          npm install -g npm@latest
+          npm -v
+          # a prerelease version (contains -) goes out under the next tag so it
+          # stays out of the default install; stable versions take latest
+          TAG=latest
+          case "$VERSION" in *-*) TAG=next ;; esac
+          echo "publishing @eqman00003/dsh-office-com@$VERSION → dist-tag:$TAG"
+          npm publish --provenance --access public --tag "$TAG"
