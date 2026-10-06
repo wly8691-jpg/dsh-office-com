@@ -13,12 +13,13 @@
     "test:faults": "node test/faults.mjs",
     "test:kb-routing": "node test/kb-writeback-routing.mjs",
     "test:kb-dispatch": "node test/kb-nested-dispatch.mjs",
+    "test:kb-contract": "node test/kb-result-contract.mjs",
     "test:kb-scan": "node test/kb-scan.mjs",
     "test:kb-taxonomy": "node test/kb-taxonomy.mjs",
     "test:kb-writeback": "node test/kb-writeback.mjs",
     "test:kb-corpora": "node test/kb-corpora.mjs",
     "test:kb-deep": "node test/kb-deep-probe.mjs",
-    "test:all": "npm test && npm run test:kb-dispatch && npm run test:kb-routing && npm run test:e2e && npm run test:flagship && npm run test:tasks && npm run test:faults"
+    "test:all": "npm test && npm run test:kb-contract && npm run test:kb-dispatch && npm run test:kb-routing && npm run test:e2e && npm run test:flagship && npm run test:tasks && npm run test:faults"
   },
   "files": [
     "lib",
