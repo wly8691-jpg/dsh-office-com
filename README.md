@@ -319,7 +319,7 @@ dsh plugin add "github:wly8691-jpg/dsh-office-com#main"
 
 | 看到 | 多半是 | 怎么办 |
 |---|---|---|
-| `DEGRADED` | 没装 `officemcp`，或 `OFFICE_PYTHON` 指错 | 装 OfficeMCP；或设 `OFFICE_PYTHON` 指向能 `import officemcp` 的 python |
+| `DEGRADED` | 没装 `officemcp`；**workbuddy 升级 Python 后第三方包被整包替换掉**（最常见）；或 `OFFICE_PYTHON` 指错 | 见下方《workbuddy 升级后突然 DEGRADED》；或设 `OFFICE_PYTHON` 指向能 `import officemcp` 的 python |
 | `APP_UNAVAILABLE` | OfficeMCP 在，但本机没 Excel/Word | 装 Office，或改用别的工具 |
 | `CHANNEL_UNAVAILABLE` | SSE 通道断了（**可重试**） | 重试一次即可——插件会自动重连（`test:faults` 有这条的回归） |
 | `COM_OBJECT_DEAD` | 通道里的 Office 对象成了**僵尸**（进程还在、对象已死，每个属性访问都抛 AttributeError） | 重试一次即可——插件会自动把 SSE 服务换掉、重新 Dispatch。**背靠背跑测试时最容易撞上**（上一个进程 Quit() 还没退干净，下一个恰好绑上去） |
@@ -327,6 +327,30 @@ dsh plugin add "github:wly8691-jpg/dsh-office-com#main"
 | `SAVE_FAILED` | 只读、被占、或磁盘满（**可重试**） | 查文件是否只读/被打开；`test:faults` 覆盖了只读这一路 |
 | `OVERWRITE_NOT_CONFIRMED` | 目标已有内容且不是本工具生成的 | 确认要覆盖就显式传 `overwrite:true` |
 | `RISKY_OP_NOT_CONFIRMED` | 跑 VBA 宏没给确认位 | 确认要跑就显式传 `confirm:true` |
+
+### workbuddy 升级后突然 DEGRADED
+
+workbuddy 升级 Python 时会**整包替换 site-packages**：`docx`、`openpyxl` 这类被它自己带上了，
+但 `officemcp` 与 `pywin32` 会**消失**。插件本身没坏——它探测到解释器不能 `import officemcp`
+就按设计降级，报错里会列出探过哪些解释器、各自缺哪些模块。
+
+三条命令定位：
+
+```bash
+# ① 当前解析到哪个解释器（current 就是权威来源）
+cat ~/.workbuddy/binaries/python/versions/current
+# ② 那个解释器还认不认得 officemcp
+"$HOME/.workbuddy/binaries/python/versions/$(cat "$HOME/.workbuddy/binaries/python/versions/current")/python.exe" -m pip show officemcp
+# ③ 缺了就重装（会连带装上 pywin32）
+<workbuddy 的 python.exe> -m pip install "officemcp==1.0.5"
+```
+
+不想动 workbuddy 的解释器，也可以指向旧的：升级通常会留下
+`~/.workbuddy/binaries/python/versions/3.13.12.old.<pid>/python.exe`，那里往往还带着旧包，
+设 `OFFICE_PYTHON=<那个 python.exe>` 即可（备份目录可能被清理，属临时方案）。
+
+> `npm test` 在无 `officemcp` 时会走**降级契约**并通过——**它的 PASS 不代表本机环境可用**，
+> 要看插件加载日志里是 `plugin loaded` 还是 `plugin loaded (degraded)`。
 
 **怀疑有看不见的 EXCEL.EXE 残留**：跑 `npm run test:leak`（它会先要求你关掉 Excel）。
 三个用例会分清「我们起的孤儿」与「你本来开着的、或新建给你的」——后者不该被回收。

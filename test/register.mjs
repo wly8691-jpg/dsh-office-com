@@ -1,7 +1,7 @@
 // 注册冒烟：无 Office / officemcp 环境也能跑（CI 用）——验证 15 个工具全部注册 + 降级路径正常
 // 运行: node test/register.mjs  （等价 npm test）
 // 真实 COM 链路见 test/smoke.mjs / test/headless.mjs（npm run test:e2e，需本机 Office + officemcp）
-import { apply, findPython, finalize, classifyError, TOOL_META, resolveCtl, parseErrMeta, VERSION } from '../lib/index.mjs'
+import { apply, findPython, findPythonDiagnostics, finalize, classifyError, TOOL_META, resolveCtl, parseErrMeta, VERSION } from '../lib/index.mjs'
 import { readFileSync } from 'node:fs'
 
 // 版本号在 lib 与 package.json 各有一处，断言一致——否则发出去的包与代码里报的对不上
@@ -209,6 +209,14 @@ if (!py) {
 } else {
   console.log(`[register] officemcp python 存在（${py}），跳过执行（e2e 见 npm run test:e2e）`)
 }
+
+// 诊断文本的契约（workbuddy 升级事故的回归）：环境可不可用都要说清"缺什么 + 怎么救"
+const diag = findPythonDiagnostics()
+if (!/pip install/.test(diag) || !/OFFICE_PYTHON/.test(diag)) {
+  console.error('[register] FAIL: python 诊断缺少补救路径（pip install / OFFICE_PYTHON）')
+  process.exit(1)
+}
+console.log('[register] python diagnostics contract OK (missing modules + two remedies)')
 
 console.log('[register] PASS')
 process.exit(0) // apply() 会预热 SSE 长连接，占着事件循环不主动退出测试就永远不结束

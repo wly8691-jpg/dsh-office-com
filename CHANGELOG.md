@@ -2,6 +2,20 @@
 
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。0.x 期间每版可能带行为变更，1.0 起以兼容性为约束。
 
+## 1.2.2
+
+**诊断向修复：把「插件坏了」和「workbuddy 升级把包装丢了」分开**（实机事故：workbuddy 升级
+Python 后整包换掉 site-packages，officemcp / pywin32 消失，插件按设计降级，但报错只有一句
+"need OfficeMCP installed"，把排查引向重装插件）。
+
+- `DEGRADED` 的报错改为 `findPythonDiagnostics()`：逐个列出探过的解释器与各自缺失的模块
+  （officemcp / pythoncom / win32com.client …），并给出两条可直接复制的补救路径。
+- 升级备份 `*.old.<pid>` 只作为**线索**出现在报错里（若备份还带 officemcp，直接给出
+  `OFFICE_PYTHON=<path>`），仍不参与自动选择——备份随时会被清理。
+- README 新增《workbuddy 升级后突然 DEGRADED》：三条定位命令，并点明
+  「`npm test` 通过 = 降级契约成立，不代表本机环境可用」。
+- **无行为变更**：探针逻辑、候选优先级、降级契约均未改。
+
 ## 1.2.1
 
 **OCR 审核（阿里 open-code-review，DeepSeek v4-pro）修复批**——17 条发现里的
